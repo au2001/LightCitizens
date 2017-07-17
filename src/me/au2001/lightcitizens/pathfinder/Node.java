@@ -6,21 +6,21 @@ import java.util.List;
 public interface Node {
 
     public double distance(Node goal);
-    public int distanceSquared(Node goal);
+    public double distanceSquared(Node goal);
 
     public List<Node> getNeighbors();
 
     public static class Node1D implements Node {
 
-        public int x;
+        public double x;
 
-        public Node1D(int x) {
+        public Node1D(double x) {
             this.x = x;
         }
 
-        public int distanceSquared(Node goal) {
+        public double distanceSquared(Node goal) {
             if (!(goal instanceof Node1D)) return -1;
-            return (int) Math.pow(distanceSquared(goal), 2);
+            return Math.pow(distance(goal), 2);
         }
 
         public double distance(Node goal) {
@@ -38,16 +38,16 @@ public interface Node {
 
     public static class Node2D implements Node {
 
-        public int x, y;
+        public double x, y;
 
-        public Node2D(int x, int y) {
+        public Node2D(double x, double y) {
             this.x = x;
             this.y = y;
         }
 
-        public int distanceSquared(Node goal) {
+        public double distanceSquared(Node goal) {
             if (!(goal instanceof Node2D)) return -1;
-            return (int) (Math.pow(this.x - ((Node2D) goal).x, 2) + Math.pow(this.y - ((Node2D) goal).y, 2));
+            return Math.pow(this.x - ((Node2D) goal).x, 2) + Math.pow(this.y - ((Node2D) goal).y, 2);
         }
 
         public double distance(Node goal) {
@@ -67,17 +67,17 @@ public interface Node {
 
     public static class Node3D implements Node {
 
-        public int x, y, z;
+        public double x, y, z;
 
-        public Node3D(int x, int y, int z) {
+        public Node3D(double x, double y, double z) {
             this.x = x;
             this.y = y;
             this.z = z;
         }
 
-        public int distanceSquared(Node goal) {
+        public double distanceSquared(Node goal) {
             if (!(goal instanceof Node3D)) return -1;
-            return (int) (Math.pow(this.x - ((Node3D) goal).x, 2) + Math.pow(this.y - ((Node3D) goal).y, 2) + Math.pow(this.z - ((Node3D) goal).z, 2));
+            return Math.pow(this.x - ((Node3D) goal).x, 2) + Math.pow(this.y - ((Node3D) goal).y, 2) + Math.pow(this.z - ((Node3D) goal).z, 2);
         }
 
         public double distance(Node goal) {

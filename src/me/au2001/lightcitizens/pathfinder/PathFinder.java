@@ -74,8 +74,8 @@ public class PathFinder {
     private Graph graph;
     private Node start, goal;
     private Map<Node, Node> cameFrom;
-    private Map<Node, Integer> gScore;
-    private Map<Node, Integer> fScore;
+    private Map<Node, Double> gScore;
+    private Map<Node, Double> fScore;
 
     public PathFinder(Graph graph, Node start, Node goal) {
         this.graph = graph;
@@ -88,33 +88,43 @@ public class PathFinder {
     private void reset() {
         this.cameFrom = new HashMap<Node, Node>();
 
-        this.gScore = new HashMap<Node, Integer>();
-        this.gScore.put(start, 0);
+        this.gScore = new HashMap<Node, Double>();
+        this.gScore.put(start, 0.0);
 
-        this.fScore = new HashMap<Node, Integer>();
+        this.fScore = new HashMap<Node, Double>();
         this.fScore.put(start, start.distanceSquared(goal));
     }
 
     public void findAsynchronously(Runnable completion) {
+        findAsynchronously(completion, 0.0);
+    }
+
+    public void findAsynchronously(Runnable completion, double distance) {
         new Thread(new Runnable() {
             public void run() {
-                find();
+                find(distance);
                 completion.run();
             }
         }).start();
     }
 
     public List<Node> find() {
+        return find(0.0);
+    }
+
+    public List<Node> find(double distance) {
         if (start == null || goal == null) return null;
 
         List<Node> closedSet = new ArrayList<Node>();
         List<Node> openSet = new ArrayList<Node>();
         openSet.add(start);
 
+        double distanceSquared = distance * distance;
+
         while (!openSet.isEmpty()) {
             Node current = openSet.remove(0);
 
-            if (current.equals(goal)) break;
+            if (current.distanceSquared(goal) <= distanceSquared) break;
 
             closedSet.add(current);
 
@@ -122,7 +132,7 @@ public class PathFinder {
                 if (closedSet.contains(neighbor)) continue;
                 if (!openSet.contains(neighbor)) openSet.add(neighbor);
 
-                int tentative_gScore = gScore.get(current) + current.distanceSquared(neighbor);
+                double tentative_gScore = gScore.get(current) + current.distanceSquared(neighbor);
                 if (tentative_gScore >= gScore.get(neighbor)) continue;
 
                 cameFrom.put(neighbor, current);

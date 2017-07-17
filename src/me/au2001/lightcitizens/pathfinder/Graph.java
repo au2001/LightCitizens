@@ -35,7 +35,10 @@ public abstract class Graph {
 
         private Block getBlock(Node node) {
             if (!(node instanceof Node.Node3D)) return null;
-            return world.getBlockAt(((Node.Node3D) node).x, ((Node.Node3D) node).y, ((Node.Node3D) node).z);
+            int x = (int) Math.floor(((Node.Node3D) node).x);
+            int y = (int) Math.floor(((Node.Node3D) node).y);
+            int z = (int) Math.floor(((Node.Node3D) node).z);
+            return world.getBlockAt(x, y, z);
         }
 
         private boolean isBlocking(Block block) {
