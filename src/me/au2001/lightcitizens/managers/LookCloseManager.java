@@ -11,8 +11,8 @@ import me.au2001.lightcitizens.packets.PacketPlayOutRelEntityMoveLook;
 
 public class LookCloseManager extends Manager {
 
-	private HashMap<Player, Byte> yawcache = new HashMap<Player, Byte>();
-	private HashMap<Player, Byte> pitchcache = new HashMap<Player, Byte>();
+	private HashMap<Player, Byte> yawCache = new HashMap<Player, Byte>();
+	private HashMap<Player, Byte> pitchCache = new HashMap<Player, Byte>();
 	
 	public LookCloseManager(FakeEntity entity) {
 		super(entity);
@@ -26,8 +26,8 @@ public class LookCloseManager extends Manager {
 			byte yaw = (byte) (orientation.getYaw() * 256.0F / 360.0F); // Between 0 and 256 instead of 0° to 360°
 			byte pitch = (byte) (orientation.getPitch() * 128.0F / 180.0F); // Between -64 and +64 instead of -90° to +90°
 			
-			boolean updateyaw = !yawcache.containsKey(observer) || yawcache.get(observer) != yaw;
-			boolean updatepitch = !pitchcache.containsKey(observer) || pitchcache.get(observer) != pitch;
+			boolean updateyaw = !yawCache.containsKey(observer) || yawCache.get(observer) != yaw;
+			boolean updatepitch = !pitchCache.containsKey(observer) || pitchCache.get(observer) != pitch;
 			
 			if (updateyaw) {
 				PacketPlayOutEntityHeadRotation look = new PacketPlayOutEntityHeadRotation();
@@ -47,14 +47,14 @@ public class LookCloseManager extends Manager {
 				move.send(observer);
 			}
 			
-			yawcache.put(observer, yaw);
-			pitchcache.put(observer, yaw);
+			yawCache.put(observer, yaw);
+			pitchCache.put(observer, yaw);
 		}
 	}
 	
 	public void onObserverRemoved(Player player) {
-		yawcache.remove(player);
-		pitchcache.remove(player);
+		yawCache.remove(player);
+		pitchCache.remove(player);
 	}
 
 }

@@ -8,59 +8,25 @@ import me.au2001.lightcitizens.packets.PacketPlayOutAnimation;
 import me.au2001.lightcitizens.packets.PacketPlayOutNamedSoundEffect;
 import me.au2001.lightcitizens.tinyprotocol.Reflection;
 import me.au2001.lightcitizens.tinyprotocol.TinyProtocol;
+import org.bukkit.Location;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.lang.reflect.Field;
 
 public class DamageableManager extends Manager {
 
-    private static Field GET_PACKET, A_FIELD, ENTITY_ID;
-    private static TinyProtocol protocol;
-
-    private PhysicsManager physics;
     private float health = 20;
     private double protection = 0;
     private int deathCount = 0;
-
-    static {
-        try {
-            GET_PACKET = FakeEntityClickedEvent.class.getDeclaredField("packet");
-            GET_PACKET.setAccessible(true);
-
-            A_FIELD = Reflection.getMinecraftClass("PacketPlayInUseEntity").getDeclaredField("a");
-            A_FIELD.setAccessible(true);
-
-            ENTITY_ID = Reflection.getMinecraftClass("Entity").getDeclaredField("id");
-            ENTITY_ID.setAccessible(true);
-
-            Field field = LightCitizens.class.getDeclaredField("protocol");
-            field.setAccessible(true);
-            protocol = (TinyProtocol) field.get(LightCitizens.getInstance());
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
-        }
-    }
 
 	public DamageableManager(FakeEntity entity) {
 		super(entity);
 	}
 
-    public void onManagerAdded() {
-        if (!entity.hasManager(PhysicsManager.class))
-            throw new IllegalStateException("DamageableManager requires an instance of PhysicsManager.");
-
-        physics = entity.getManager(PhysicsManager.class);
-    }
-
     public void onLeftClicked(FakeEntityLeftClickedEvent event) {
-        try {
-            Object packet = GET_PACKET.get(event);
-            A_FIELD.set(packet, ENTITY_ID.get(physics.getMirrorEntity()));
-
-            protocol.receivePacket(event.getPlayer(), packet);
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        }
+        handleDamage(event.getPlayer());
     }
 
     public float getHealth() {
@@ -91,7 +57,17 @@ public class DamageableManager extends Manager {
         this.deathCount = deathCount;
     }
 
-    void handleDamage(Object source, float damage) {
+    public void handleDamage(LivingEntity source) {
+        // TODO
+        handleDamage(source.getEyeLocation(), null);
+    }
+
+    public void handleDamage(Location source, ItemStack item) {
+	    // TODO
+        handleDamage(source, 0, 0);
+    }
+
+    public void handleDamage(Location source, double knockback, float damage) {
         setHealth(health - damage * 100F / ((float) protection + 100F));
 
         if (health > 0) {
