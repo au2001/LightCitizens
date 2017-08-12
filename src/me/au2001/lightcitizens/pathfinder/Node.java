@@ -10,6 +10,9 @@ public interface Node {
 
     public List<Node> getNeighbors();
 
+    public String toString();
+    public boolean equals(Object other);
+
     public static class Node1D implements Node {
 
         public double x;
@@ -33,6 +36,15 @@ public interface Node {
             neighbors.add(new Node1D(x - 1));
             neighbors.add(new Node1D(x + 1));
             return neighbors;
+        }
+
+        public String toString() {
+            return getClass().getName() + "(x=" + x + ")";
+        }
+
+        public boolean equals(Object other) {
+            if (!(other instanceof Node1D)) return false;
+            return x == ((Node1D) other).x;
         }
     }
 
@@ -62,6 +74,15 @@ public interface Node {
             neighbors.add(new Node2D(x, y - 1));
             neighbors.add(new Node2D(x, y + 1));
             return neighbors;
+        }
+
+        public String toString() {
+            return getClass().getName() + "(x=" + x + ", y=" + y + ")";
+        }
+
+        public boolean equals(Object other) {
+            if (!(other instanceof Node2D)) return false;
+            return x == ((Node2D) other).x && y == ((Node3D) other).y;
         }
     }
 
@@ -94,6 +115,15 @@ public interface Node {
             neighbors.add(new Node3D(x, y, z - 1));
             neighbors.add(new Node3D(x, y, z + 1));
             return neighbors;
+        }
+
+        public String toString() {
+            return getClass().getName() + "(x=" + x + ", y=" + y + ", z=" + z + ")";
+        }
+
+        public boolean equals(Object other) {
+            if (!(other instanceof Node3D)) return false;
+            return x == ((Node3D) other).x && y == ((Node3D) other).y && z == ((Node3D) other).z;
         }
     }
 

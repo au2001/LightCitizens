@@ -72,10 +72,11 @@ public class PathFinder {
     */
 
     private Graph graph;
-    private Node start, goal;
+    private Node start, goal, last;
     private Map<Node, Node> cameFrom;
     private Map<Node, Double> gScore;
     private Map<Node, Double> fScore;
+    private Thread thread = null;
 
     public PathFinder(Graph graph, Node start, Node goal) {
         this.graph = graph;
@@ -100,12 +101,21 @@ public class PathFinder {
     }
 
     public void findAsynchronously(Runnable completion, double distance) {
-        new Thread(new Runnable() {
+        cancelFind();
+        thread = new Thread(new Runnable() {
             public void run() {
                 find(distance);
                 completion.run();
             }
-        }).start();
+        });
+        thread.start();
+    }
+
+    public void cancelFind() {
+        if (thread != null) {
+            thread.interrupt();
+            thread = null;
+        }
     }
 
     public List<Node> find() {
@@ -124,7 +134,10 @@ public class PathFinder {
         while (!openSet.isEmpty()) {
             Node current = openSet.remove(0);
 
-            if (current.distanceSquared(goal) <= distanceSquared) break;
+            if (current.distanceSquared(goal) <= distanceSquared) {
+                last = current;
+                break;
+            } else if (closedSet.contains(current)) continue;
 
             closedSet.add(current);
 
@@ -132,12 +145,12 @@ public class PathFinder {
                 if (closedSet.contains(neighbor)) continue;
                 if (!openSet.contains(neighbor)) openSet.add(neighbor);
 
-                double tentative_gScore = gScore.get(current) + current.distanceSquared(neighbor);
-                if (tentative_gScore >= gScore.get(neighbor)) continue;
+                double tentative_gScore = gScore.get(current) + current.distance(neighbor);
+                if (gScore.containsKey(neighbor) && tentative_gScore >= gScore.get(neighbor)) continue;
 
                 cameFrom.put(neighbor, current);
                 gScore.put(neighbor, tentative_gScore);
-                fScore.put(neighbor, gScore.get(neighbor) + neighbor.distanceSquared(goal));
+                fScore.put(neighbor, gScore.get(neighbor) + neighbor.distance(goal));
             }
         }
 
@@ -145,11 +158,11 @@ public class PathFinder {
     }
 
     public List<Node> getPath() {
-        if (start == null || goal == null) return null;
-        if (!cameFrom.containsKey(goal)) return null;
+        if (start == null || last == null) return null;
+        if (!cameFrom.containsKey(last)) return null;
 
         List<Node> path = new ArrayList<Node>();
-        for (Node current = goal; cameFrom.get(current) != null; current = cameFrom.get(current))
+        for (Node current = last; cameFrom.get(current) != null; current = cameFrom.get(current))
             path.add(0, current);
         return path;
     }
