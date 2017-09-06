@@ -1,60 +1,57 @@
 package me.au2001.lightcitizens.managers;
 
 import me.au2001.lightcitizens.FakeEntity;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.EntityDeathEvent;
 
-public class WalkTowardsEntityManager extends Manager {
+public class WalkTowardsEntityManager extends WalkTowardsLocationManager {
 
-    private static int updateThreshold = 20;
+    private static final int UPDATE_THRESHOLD = 3 * 20;
 
-    private boolean walking = false;
     private int updateTicks = 0;
+    private Entity entity = null;
 
 	public WalkTowardsEntityManager(FakeEntity entity) {
 		super(entity);
 	}
 
     public void onManagerRemoved() {
-        walkTowardsEntity(null, 0, 0, 0);
+        walkTowardsEntity(null);
     }
 
     public void tick() {
-        if (updateTicks++ >= updateThreshold) {
+        if (updateTicks++ >= UPDATE_THRESHOLD) {
             updateTicks = 0;
 
-            // TODO
+            walkTowardsEntity(entity);
         }
+
+        super.tick();
     }
 
     @SuppressWarnings("unchecked")
-	public void walkTowardsEntity(Entity entity, double speed, double range, double maxrange) {
-        if (walking) {
-            // TODO
+	public void walkTowardsEntity(Entity entity) {
+	    Location location = entity != null? entity.getLocation() : null;
+		walkTowardsLocation(location);
 
-            walking = false;
-		}
+		if (entity == null) return;
 
-		if (entity == null || speed <= 0 || maxrange <= 0) return;
-
-        if (this.entity.hasManager(WalkTowardsLocationManager.class)) {
-            WalkTowardsLocationManager manager = this.entity.getManager(WalkTowardsLocationManager.class);
-            if (manager.isWalkingTowardsLocation()) manager.walkTowardsLocation(null, 0, 0);
+        if (super.entity.hasManager(WalkTowardsLocationManager.class)) {
+            WalkTowardsLocationManager manager = super.entity.getManager(WalkTowardsLocationManager.class);
+            if (manager.isWalkingTowardsLocation()) manager.walkTowardsLocation(null);
         }
-
-        // TODO
-
-        walking = true;
 	}
 
     public boolean isWalkingTowardsEntity() {
-        return walking;
+        return isWalkingTowardsLocation();
     }
 
     @EventHandler
     public void onEntityDeathEvent(EntityDeathEvent event) {
-        // TODO
+        if (entity != null && event.getEntity().equals(entity))
+            walkTowardsEntity(null);
     }
 	
 }
