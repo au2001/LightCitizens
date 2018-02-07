@@ -1,14 +1,20 @@
 package me.au2001.lightcitizens.packets;
 
-import java.lang.reflect.Field;
-
+import io.netty.channel.Channel;
+import me.au2001.lightcitizens.LightCitizens;
 import org.bukkit.entity.Player;
 
-import me.au2001.lightcitizens.LightCitizens;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Packet {
 
 	protected Object packet = null;
+
+	public Packet(Object packet) {
+		this.packet = packet;
+	}
 	
 	public Packet(Class<?> clazz) {
 		try {
@@ -54,6 +60,34 @@ public class Packet {
 
 	public Object toPacket() {
 		return packet;
+	}
+
+	public static abstract class PacketListener {
+
+		private static List<PacketListener> packetListeners = new ArrayList<PacketListener>();
+
+		public void register() {
+			if (packetListeners.contains(this)) return;
+
+			packetListeners.add(this);
+		}
+
+		public void unregister() {
+			if (!packetListeners.contains(this)) return;
+
+			packetListeners.remove(this);
+		}
+
+		public void onPacketInAsync(Player sender, Channel channel, Packet packet) {}
+		public void onPacketOutAsync(Player receiver, Channel channel, Packet packet) {}
+
+		public static void callPacketInAsync(Player sender, Channel channel, Packet packet) {
+			for (PacketListener listener : packetListeners) listener.onPacketInAsync(sender, channel, packet);
+		}
+
+		public static void callPacketOutAsync(Player receiver, Channel channel, Packet packet) {
+			for (PacketListener listener : packetListeners) listener.onPacketOutAsync(receiver, channel, packet);
+		}
 	}
 	
 }

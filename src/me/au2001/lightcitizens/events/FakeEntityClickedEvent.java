@@ -1,5 +1,6 @@
 package me.au2001.lightcitizens.events;
 
+import me.au2001.lightcitizens.packets.Packet;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 
@@ -10,7 +11,7 @@ public class FakeEntityClickedEvent extends FakeEntityEvent implements Cancellab
 	private Player player;
 	private Object packet;
 	
-	public FakeEntityClickedEvent(int entityId, Player player, Action action, Object packet) {
+	public FakeEntityClickedEvent(int entityId, Player player, Action action, Packet packet) {
 		super(entityId);
 		this.player = player;
 		this.action = action;
