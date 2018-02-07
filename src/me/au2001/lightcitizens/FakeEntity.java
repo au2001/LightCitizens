@@ -18,10 +18,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerKickEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldLoadEvent;
@@ -625,11 +622,39 @@ public class FakeEntity extends Random implements Listener {
 	public void onPlayerMove(PlayerMoveEvent event) {
 		if (viewDistance <= 0) return;
 		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
+		if (!observers.contains(event.getPlayer()));
+
 		if (!serverLocation.getWorld().equals(event.getPlayer().getWorld())) return;
+
 		boolean from = serverLocation.distanceSquared(event.getFrom()) <= viewDistance * viewDistance;
-		if (from == serverLocation.distanceSquared(event.getTo()) <= viewDistance * viewDistance) return;
-		if (from) hideEntity(Arrays.asList(event.getPlayer()));
-		else showEntity(Arrays.asList(event.getPlayer()));
+		boolean to = serverLocation.distanceSquared(event.getTo()) <= viewDistance * viewDistance;
+
+		if (from && !to) hideEntity(Arrays.asList(event.getPlayer()));
+		else if (!from && to) showEntity(Arrays.asList(event.getPlayer()));
+	}
+
+	@EventHandler
+	public void onPlayerTeleport(PlayerTeleportEvent event) {
+		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
+		if (!observers.contains(event.getPlayer()));
+
+		boolean from = serverLocation.getWorld().equals(event.getFrom().getWorld()) && (viewDistance <= 0 || serverLocation.distanceSquared(event.getFrom()) <= viewDistance * viewDistance);
+		boolean to = serverLocation.getWorld().equals(event.getTo().getWorld()) && (viewDistance <= 0 || serverLocation.distanceSquared(event.getTo()) <= viewDistance * viewDistance);
+
+		if (from && !to) hideEntity(Arrays.asList(event.getPlayer()));
+		else if (!from && to) showEntity(Arrays.asList(event.getPlayer()));
+	}
+
+	@EventHandler
+	public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
+		if (!observers.contains(event.getPlayer()));
+
+		boolean from = serverLocation.getWorld().equals(event.getFrom());
+		boolean to = serverLocation.getWorld().equals(event.getPlayer().getWorld()) && (viewDistance <= 0 || serverLocation.distanceSquared(event.getPlayer().getLocation()) <= viewDistance * viewDistance);
+
+		if (from && !to) hideEntity(Arrays.asList(event.getPlayer()));
+		else if (!from && to) showEntity(Arrays.asList(event.getPlayer()));
 	}
 
 }
