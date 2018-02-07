@@ -1,6 +1,9 @@
 package me.au2001.lightcitizens.managers;
 
 import me.au2001.lightcitizens.FakeEntity;
+import me.au2001.lightcitizens.packets.PacketPlayOutScoreboardScore;
+import me.au2001.lightcitizens.packets.PacketPlayOutScoreboardScore.EnumScoreboardAction;
+import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
@@ -12,18 +15,26 @@ import java.util.Set;
 
 public class ScoreboardManager extends Manager {
 
+    // TODO: Intercept packets and send fake ones not to interfere with real Scoreboard.
+
+    private static final int UPDATE_THRESHOLD = 1 * 20;
+
+    private int updateTicks = 0;
     private String entryName;
     private List<Objective> automaticScores = new ArrayList<Objective>();
 
     public ScoreboardManager(FakeEntity entity) {
-		super(entity);
+        super(entity);
 
-		// entryName = entity.getUUID().toString();
         entryName = entity.getName();
-	}
+    }
 
     public void tick() {
-        for (Objective objective : automaticScores) calculateScore(objective);
+        if (updateTicks++ >= UPDATE_THRESHOLD) {
+            updateTicks = 0;
+
+            for (Objective objective : automaticScores) updateScore(objective);
+        }
     }
 
     public Team getTeam(Scoreboard scoreboard) {
@@ -55,14 +66,28 @@ public class ScoreboardManager extends Manager {
     }
 
     public void addAutomaticScore(Objective objective) {
-        if (!automaticScores.contains(objective)) {
-            automaticScores.add(objective);
-            calculateScore(objective);
-        }
+        if (automaticScores.contains(objective)) return;
+
+        automaticScores.add(objective);
+        updateScore(objective);
     }
 
     public void removeAutomaticScore(Objective objective) {
         if (automaticScores.contains(objective)) automaticScores.remove(objective);
+    }
+
+    public void updateScore(Objective objective) {
+        int value = calculateScore(objective);
+
+//        Score score = getScore(objective);
+//        if (score != null && score.getScore() != value) score.setScore(value);
+
+        PacketPlayOutScoreboardScore score = new PacketPlayOutScoreboardScore();
+        score.set("a", entryName);
+        score.set("b", objective.getName());
+        score.set("c", value);
+        score.set("d", EnumScoreboardAction.CHANGE);
+        for (Player observer : entity.getObservers()) score.send(observer);
     }
 
     public int calculateScore(Objective objective) {
@@ -73,33 +98,42 @@ public class ScoreboardManager extends Manager {
                 if (entity.hasManager(DamageableManager.class))
                     value = entity.getManager(DamageableManager.class).getDeathCount();
                 break;
+
             case "playerKillCount":
                 if (entity.hasManager(AttackEntityManager.class))
                     value = entity.getManager(AttackEntityManager.class).getPlayerKillCount();
                 break;
+
             case "totalKillCount":
                 if (entity.hasManager(AttackEntityManager.class))
                     value = entity.getManager(AttackEntityManager.class).getTotalKillCount();
                 break;
+
             case "health":
                 if (entity.hasManager(DamageableManager.class))
                     value = (int) entity.getManager(DamageableManager.class).getHealth();
                 break;
+
             case "xp":
                 // TODO
                 break;
+
             case "level":
                 // TODO
                 break;
+
             case "food":
                 // TODO
                 break;
+
             case "air":
                 // TODO
                 break;
+
             case "armor":
                 // TODO
                 break;
+
             case "dummy":
             case "trigger":
             default:
@@ -112,8 +146,6 @@ public class ScoreboardManager extends Manager {
         // TODO: stat.<stat>
         // TODO: achievement.<achievement>
 
-        Score score = getScore(objective);
-        if (score != null && score.getScore() != value) score.setScore(value);
         return value;
     }
 	
