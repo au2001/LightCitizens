@@ -1,13 +1,15 @@
 package me.au2001.lightcitizens;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.*;
-import java.util.Map.Entry;
-
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
+import com.mojang.authlib.properties.PropertyMap;
+import me.au2001.lightcitizens.events.FakeEntityDestroyedEvent;
+import me.au2001.lightcitizens.events.FakeEntityLeftClickedEvent;
+import me.au2001.lightcitizens.events.FakeEntityRightClickedEvent;
+import me.au2001.lightcitizens.events.FakeEntitySpawnedEvent;
+import me.au2001.lightcitizens.managers.Manager;
 import me.au2001.lightcitizens.packets.*;
+import me.au2001.lightcitizens.tinyprotocol.Reflection;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -17,25 +19,24 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerKickEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
-import com.mojang.authlib.properties.PropertyMap;
-
-import me.au2001.lightcitizens.events.FakeEntityDestroyedEvent;
-import me.au2001.lightcitizens.events.FakeEntityLeftClickedEvent;
-import me.au2001.lightcitizens.events.FakeEntityRightClickedEvent;
-import me.au2001.lightcitizens.events.FakeEntitySpawnedEvent;
-import me.au2001.lightcitizens.managers.Manager;
-import me.au2001.lightcitizens.tinyprotocol.Reflection;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.*;
+import java.util.Map.Entry;
 
 public class FakeEntity extends Random implements Listener {
 
@@ -61,6 +62,7 @@ public class FakeEntity extends Random implements Listener {
 	private String playerListName;
 	private GameMode gamemode;
 	private Object dataWatcher;
+	private int viewDistance;
 
 	boolean changed;
 
@@ -132,6 +134,7 @@ public class FakeEntity extends Random implements Listener {
 		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			e.printStackTrace();
 		}
+		this.viewDistance = 48;
 
 		for (Class<Manager> manager : managers) addManager(manager, plugin);
 		Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -147,7 +150,7 @@ public class FakeEntity extends Random implements Listener {
 			profile = new GameProfile(uuid, name);
 			for (Entry<String, Property> property : properties.entries())
 				profile.getProperties().put(property.getKey(), property.getValue());
-			for (Player player : new ArrayList<Player>(observers)) sendEntity(player);
+			showEntity();
 			clientLocation = serverLocation.clone();
 			changed = false;
 		} else if (!serverLocation.equals(clientLocation)) {
@@ -158,20 +161,25 @@ public class FakeEntity extends Random implements Listener {
 			move.set("d", (int) (serverLocation.getZ() * 32.0D));
 			move.set("e", (byte) (serverLocation.getYaw() * 256.0F / 360.0F));
 			move.set("f", (byte) (serverLocation.getPitch() * 256.0F / 360.0F));
-			for (Player player : observers) move.send(player);
+			for (Player player : getVisibleObservers()) move.send(player);
 
 			PacketPlayOutEntityHeadRotation look = new PacketPlayOutEntityHeadRotation();
 			look.set("a", entityId);
 			look.set("b", (byte) (serverLocation.getYaw() * 256.0F / 360.0F));
-			for (Player player : observers) look.send(player);
+			for (Player player : getVisibleObservers()) look.send(player);
 
 			clientLocation = serverLocation.clone();
 		}
 	}
 
+	private void showEntity() {
+		showEntity(getVisibleObservers());
+	}
+
 	@SuppressWarnings({ "deprecation", "unchecked" })
-	private void sendEntity(Player player) {
-		if (tablisttasks.containsKey(player)) tablisttasks.remove(player).cancel();
+	private void showEntity(List<Player> players) {
+		for (Player player : players)
+			if (tablisttasks.containsKey(player)) tablisttasks.remove(player).cancel();
 
 		try {
 			PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
@@ -185,7 +193,7 @@ public class FakeEntity extends Random implements Listener {
 			String json = "{\"text\":\"" + (playerListName != null? playerListName.replace("\\", "\\\\").replace("\"", "\\\"") : "") + "\"}";
 			data.add(PLAYER_INFO_DATA.newInstance(info.toPacket(), profile, ping, GET_GAMEMODE.invoke(null, gamemode.getValue()), CHAT_SERIALIZER.invoke(null, json)));
 			// info.set("b", data);
-			info.send(player);
+			for (Player player : players) info.send(player);
 		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
 			e.printStackTrace();
 		}
@@ -200,33 +208,78 @@ public class FakeEntity extends Random implements Listener {
 		spawned.set("g", (byte) ((int) (serverLocation.getPitch() * 256.0F / 360.0F)));
 		// spawned.set("h", equipment.hasItemInHand()? equipment.getItemInHand().getTypeId() : 0);
 		spawned.set("i", dataWatcher);
-		spawned.send(player);
+		for (Player player : players) spawned.send(player);
 
-        equipment.send(player);
+		for (Player player : players) equipment.send(player);
 		
 		if (playerListName == null) {
-			tablisttasks.put(player, new BukkitRunnable() {
-				public void run() {
-					try {
-						PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
-						for (Object action : PLAYER_INFO_ACTION.getEnumConstants()) {
-							if (ENUM_NAME.invoke(action).equals("REMOVE_PLAYER")) {
-								info.set("a", action);
-								break;
+			for (Player player : players) {
+				tablisttasks.put(player, new BukkitRunnable() {
+					public void run() {
+						try {
+							PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
+							for (Object action : PLAYER_INFO_ACTION.getEnumConstants()) {
+								if (ENUM_NAME.invoke(action).equals("REMOVE_PLAYER")) {
+									info.set("a", action);
+									break;
+								}
 							}
+							List<Object> data = (List<Object>) info.get("b");
+							data.add(PLAYER_INFO_DATA.newInstance(info.toPacket(), profile, ping, GET_GAMEMODE.invoke(null, gamemode.getValue()), CHAT_SERIALIZER.invoke(null, "{\"text\":\"\"}")));
+							// info.set("b", data);
+							info.send(player);
+						} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
+							e.printStackTrace();
 						}
-						List<Object> data = (List<Object>) info.get("b");
-						data.add(PLAYER_INFO_DATA.newInstance(info.toPacket(), profile, ping, GET_GAMEMODE.invoke(null, gamemode.getValue()), CHAT_SERIALIZER.invoke(null, "{\"text\":\"\"}")));
-						// info.set("b", data);
-						info.send(player);
-					} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
-						e.printStackTrace();
+
+						tablisttasks.remove(player);
 					}
-					
-					tablisttasks.remove(player);
-				}
-			}.runTaskLater(LightCitizens.getInstance(), 5));
+				}.runTaskLater(LightCitizens.getInstance(), 5));
+			}
 		}
+	}
+
+	private void hideEntity() {
+		hideEntity(observers);
+	}
+
+	@SuppressWarnings({ "deprecation", "unchecked" })
+	private void hideEntity(List<Player> players) {
+		for (Player player : players)
+			if (tablisttasks.containsKey(player)) tablisttasks.remove(player).cancel();
+
+		try {
+			PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
+			for (Object action : PLAYER_INFO_ACTION.getEnumConstants()) {
+				if (ENUM_NAME.invoke(action).equals("REMOVE_PLAYER")) {
+					info.set("a", action);
+					break;
+				}
+			}
+			List<Object> data = (List<Object>) info.get("b");
+			data.add(PLAYER_INFO_DATA.newInstance(info.toPacket(), profile, ping, GET_GAMEMODE.invoke(null, gamemode.getValue()), CHAT_SERIALIZER.invoke(null, "{\"text\":\"\"}")));
+			// info.set("b", data);
+			for (Player player : players) info.send(player);
+		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			e.printStackTrace();
+		}
+
+		PacketPlayOutEntityDestroy destroy = new PacketPlayOutEntityDestroy();
+		destroy.set("a", new int[] { entityId });
+		for (Player player : players) destroy.send(player);
+	}
+
+	private List<Player> getVisibleObservers() {
+		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded())
+			return new ArrayList<Player>();
+
+		List<Player> observers = new ArrayList<Player>();
+		for (Player player : this.observers) {
+			if (!serverLocation.getWorld().equals(player.getWorld())) continue;
+			if (viewDistance > 0 && serverLocation.distanceSquared(player.getLocation()) > viewDistance * viewDistance) continue;
+			observers.add(player);
+		}
+		return observers;
 	}
 
 	public void destroy() {
@@ -235,8 +288,8 @@ public class FakeEntity extends Random implements Listener {
 
     public void destroy(boolean animation) {
 	    if (animation) {
-	        FakeEntityEquipment equipment = new FakeEntityEquipment(this, null, null, null, null, null);
-            for (Player observer : observers) equipment.send(observer);
+	        // FakeEntityEquipment equipment = new FakeEntityEquipment(this, null, null, null, null, null);
+            // for (Player observer : getVisibleObservers()) equipment.send(observer);
 
             PacketPlayOutNamedSoundEffect sound = new PacketPlayOutNamedSoundEffect();
             sound.set("a", "game.player.die");
@@ -245,19 +298,19 @@ public class FakeEntity extends Random implements Listener {
             sound.set("d", (int) (serverLocation.getZ() * 8));
             sound.set("e", 1F);
             sound.set("f", (int) (((nextFloat() - nextFloat()) * 0.2F + 1.0F) * 63.0F));
-            for (Player observer : observers) sound.send(observer);
+            for (Player observer : getVisibleObservers()) sound.send(observer);
 
             PacketPlayOutEntityStatus status = new PacketPlayOutEntityStatus();
             status.set("a", entityId);
             status.set("b", (byte) 3);
-            for (Player observer : observers) status.send(observer);
+            for (Player observer : getVisibleObservers()) status.send(observer);
 
 	        new BukkitRunnable() {
                 public void run() {
-                    for (Player player : new ArrayList<Player>(observers)) removeObserver(player);
+                    for (Player player : getVisibleObservers()) removeObserver(player);
                 }
             }.runTaskLater(LightCitizens.getInstance(), 20);
-        } else for (Player player : new ArrayList<Player>(observers)) removeObserver(player);
+        } else for (Player player : getVisibleObservers()) removeObserver(player);
 
         Bukkit.getPluginManager().callEvent(new FakeEntityDestroyedEvent(this));
         for (Class<? extends Manager> manager : new ArrayList<Class<? extends Manager>>(managers.keySet())) removeManager(manager);
@@ -322,7 +375,10 @@ public class FakeEntity extends Random implements Listener {
 
 	public void addObserver(Player player) {
 		if (observers.contains(player)) return;
-		sendEntity(player);
+
+		if (serverLocation != null && serverLocation.getWorld() != null && serverLocation.getChunk() != null && serverLocation.getChunk().isLoaded())
+			if (serverLocation.getWorld().equals(player.getWorld()) && (viewDistance <= 0 || serverLocation.distanceSquared(player.getLocation()) <= viewDistance * viewDistance))
+				showEntity(Arrays.asList(player));
 
         synchronized (this) {
             observers.add(player);
@@ -333,27 +389,7 @@ public class FakeEntity extends Random implements Listener {
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	public void removeObserver(Player player) {
 		if (!observers.contains(player)) return;
-
-		if (tablisttasks.containsKey(player)) tablisttasks.remove(player).cancel();
-
-		try {
-			PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
-			for (Object action : PLAYER_INFO_ACTION.getEnumConstants()) {
-				if (ENUM_NAME.invoke(action).equals("REMOVE_PLAYER")) {
-					info.set("a", action);
-					break;
-				}
-			}
-			List<Object> data = (List<Object>) info.get("b");
-			data.add(PLAYER_INFO_DATA.newInstance(info.toPacket(), profile, ping, GET_GAMEMODE.invoke(null, gamemode.getValue()), CHAT_SERIALIZER.invoke(null, "{\"text\":\"\"}")));
-			info.send(player);
-		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-			e.printStackTrace();
-		}
-
-		PacketPlayOutEntityDestroy destroy = new PacketPlayOutEntityDestroy();
-		destroy.set("a", new int[] { entityId });
-		destroy.send(player);
+		hideEntity(Arrays.asList(player));
 
         synchronized (this) {
             observers.remove(player);
@@ -467,6 +503,30 @@ public class FakeEntity extends Random implements Listener {
 		this.changed = true;
 	}
 
+	public int getViewDistance() {
+		return viewDistance;
+	}
+
+	public void setViewDistance(int viewDistance) {
+		if (viewDistance < this.viewDistance) {
+			List<Player> players = new ArrayList<Player>();
+			for (Player player : getVisibleObservers()) {
+				double distance = serverLocation.distanceSquared(player.getLocation());
+				if (distance > viewDistance * viewDistance) players.add(player);
+			}
+			hideEntity(players);
+			this.viewDistance = viewDistance;
+		} else if (viewDistance < this.viewDistance) {
+			this.viewDistance = viewDistance;
+			List<Player> players = new ArrayList<Player>();
+			for (Player player : getVisibleObservers()) {
+				double distance = serverLocation.distanceSquared(player.getLocation());
+				if (distance <= viewDistance * viewDistance) players.add(player);
+			}
+			showEntity(players);
+		}
+	}
+
 	public void setSkin(String data, String signature) {
 		profile.getProperties().removeAll("textures");
 		if (data != null) {
@@ -509,27 +569,7 @@ public class FakeEntity extends Random implements Listener {
 	public void onPlayerDeath(PlayerDeathEvent event) {
 		Player player = event.getEntity();
 		if (!observers.contains(player)) return;
-
-		if (tablisttasks.containsKey(player)) tablisttasks.remove(player).cancel();
-
-		try {
-			PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
-			for (Object action : PLAYER_INFO_ACTION.getEnumConstants()) {
-				if (ENUM_NAME.invoke(action).equals("REMOVE_PLAYER")) {
-					info.set("a", action);
-					break;
-				}
-			}
-			List<Object> data = (List<Object>) info.get("b");
-			data.add(PLAYER_INFO_DATA.newInstance(info.toPacket(), profile, ping, GET_GAMEMODE.invoke(null, gamemode.getValue()), CHAT_SERIALIZER.invoke(null, "{\"text\":\"\"}")));
-			info.send(player);
-		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-			e.printStackTrace();
-		}
-
-		PacketPlayOutEntityDestroy destroy = new PacketPlayOutEntityDestroy();
-		destroy.set("a", new int[] { entityId });
-		destroy.send(player);
+	    hideEntity(Arrays.asList(player));
 	}
 
     @EventHandler
@@ -541,7 +581,10 @@ public class FakeEntity extends Random implements Listener {
                 // Delay the NPC loading so that the client has time to render the skin after the entity has spawned.
                 // Setting the delay too low would make the client receive the packets during the "login freeze", and
                 // wouldn't render the skin before the REMOVE_PLAYER packet is received, preventing the skin to load.
-                sendEntity(event.getPlayer());
+	            if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
+	            if (!serverLocation.getWorld().equals(event.getPlayer().getWorld())) return;
+	            if (viewDistance <= 0 || serverLocation.distanceSquared(event.getPlayer().getLocation()) > viewDistance * viewDistance) return;
+	            showEntity(Arrays.asList(event.getPlayer()));
             }
         }.runTaskLater(LightCitizens.getInstance(), 20);
     }
@@ -558,12 +601,33 @@ public class FakeEntity extends Random implements Listener {
 
     @EventHandler
     public void onChunkUnload(ChunkUnloadEvent event) {
-        if (serverLocation.getChunk().equals(event.getChunk())) destroy();
+        if (serverLocation.getChunk().equals(event.getChunk())) hideEntity();
     }
 
     @EventHandler
     public void onWorldUnload(WorldUnloadEvent event) {
-        if (serverLocation.getWorld().equals(event.getWorld())) destroy();
+        if (serverLocation.getWorld().equals(event.getWorld())) hideEntity();
     }
+
+	@EventHandler
+	public void onChunkLoad(ChunkLoadEvent event) {
+		if (serverLocation.getChunk().equals(event.getChunk())) showEntity();
+	}
+
+	@EventHandler
+	public void onWorldLoad(WorldLoadEvent event) {
+		if (serverLocation.getWorld().equals(event.getWorld())) showEntity();
+	}
+
+	@EventHandler
+	public void onPlayerMove(PlayerMoveEvent event) {
+		if (viewDistance <= 0) return;
+		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
+		if (!serverLocation.getWorld().equals(event.getPlayer().getWorld())) return;
+		boolean from = serverLocation.distanceSquared(event.getFrom()) <= viewDistance * viewDistance;
+		if (from == serverLocation.distanceSquared(event.getTo()) <= viewDistance * viewDistance) return;
+		if (from) hideEntity(Arrays.asList(event.getPlayer()));
+		else showEntity(Arrays.asList(event.getPlayer()));
+	}
 
 }
