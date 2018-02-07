@@ -16,6 +16,7 @@ public class AttackEntityManager extends Manager {
 	private double lookRange = 10;
     private double attackRange = 5;
     private int attackDelay = 20;
+    private int randomDelay = 20;
     private double attackDamage = 2;
     private double knockback = 0.5;
 
@@ -100,8 +101,8 @@ public class AttackEntityManager extends Manager {
             target.setVelocity(orientation.getDirection().setY(0).normalize().multiply(knockback).setY(knockback));
             if (target instanceof LivingEntity) ((LivingEntity) target).setNoDamageTicks(nodamage);
 
-            lastAttack = 0;
-        }
+            lastAttack = -entity.nextInt(randomDelay);
+        } else lastAttack = attackDelay - entity.nextInt(randomDelay);
     }
 
     public Damageable getTarget() {
@@ -135,6 +136,15 @@ public class AttackEntityManager extends Manager {
     public void setAttackDelay(int attackDelay) {
 	    if (lastAttack >= this.attackDelay) lastAttack = attackDelay;
         this.attackDelay = attackDelay;
+    }
+
+    public int getRandomDelay() {
+        return randomDelay;
+    }
+
+    public void setRandomDelay(int randomDelay) {
+        if (lastAttack < -randomDelay) lastAttack = -randomDelay;
+        this.randomDelay = randomDelay;
     }
 
     public double getAttackDamage() {
