@@ -231,7 +231,7 @@ public class FakeEntity extends Random implements Listener {
 
 						tablisttasks.remove(player);
 					}
-				}.runTaskLater(LightCitizens.getInstance(), 5));
+				}.runTaskLater(LightCitizens.getInstance(), LightCitizens.getPingTicks(player) * 2 + 5));
 			}
 		}
 	}
@@ -585,7 +585,7 @@ public class FakeEntity extends Random implements Listener {
 	            if (viewDistance > 0 && serverLocation.distanceSquared(event.getPlayer().getLocation()) > viewDistance * viewDistance) return;
 	            showEntity(Arrays.asList(event.getPlayer()));
             }
-        }.runTaskLater(LightCitizens.getInstance(), 20);
+        }.runTaskLater(LightCitizens.getInstance(), LightCitizens.getPingTicks(event.getPlayer()) * 5 + 10);
     }
 
 	@EventHandler

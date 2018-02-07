@@ -106,6 +106,21 @@ public class LightCitizens extends JavaPlugin {
 		instance.protocol.sendPacket(player, packet);
 	}
 
+	public static long getPing(Player player) {
+		try {
+			Class<?> craftPlayer = Reflection.getCraftBukkitClass("entity.CraftPlayer");
+			Object handle = craftPlayer.getMethod("getHandle").invoke(player);
+			return ((Integer) handle.getClass().getDeclaredField("ping").get(handle)).longValue();
+		} catch (Exception e) {
+			e.printStackTrace();
+			return -1;
+		}
+	}
+
+	public static long getPingTicks(Player player) {
+		return (long) Math.max(Math.ceil((double) getPing(player) * 20 / 1000), 1);
+	}
+
 	public static LightCitizens getInstance() {
 		return instance;
 	}

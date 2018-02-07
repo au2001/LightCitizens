@@ -27,7 +27,7 @@ public class BroadcastEntityManager extends Manager {
 				// wouldn't render the skin before the REMOVE_PLAYER packet is received, preventing the skin to load.
 				entity.addObserver(event.getPlayer());
 			}
-		}.runTaskLater(LightCitizens.getInstance(), 5*20);
+		}.runTaskLater(LightCitizens.getInstance(), LightCitizens.getPingTicks(event.getPlayer()) * 25 + 50);
 	}
 	
 }
