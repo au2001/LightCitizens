@@ -51,11 +51,15 @@ public abstract class Graph {
         }
 
         public Node.Node3D getNode(Location location) {
-            return getNode(location.getBlock());
+            return getNode(location.getBlockX(), location.getBlockY(), location.getBlockZ());
         }
 
         public Node.Node3D getNode(Block block) {
-            return new Node.Node3D(block.getX(), block.getY(), block.getZ());
+            return getNode(block.getX(), block.getY(), block.getZ());
+        }
+
+        public Node.Node3D getNode(int x, int y, int z) {
+            return new Node.Node3D(x, y, z);
         }
 
         public Block getBlock(Node.Node3D node) {
@@ -73,14 +77,14 @@ public abstract class Graph {
             if (distanceSquared < 0) return true;
             int distX = (int) Math.pow(node.x - center.getBlockX(), 2);
             int distZ = (int) Math.pow(node.z - center.getBlockZ(), 2);
-            return distX + distZ <= distanceSquared;
+            return distX + distZ <= distanceSquared && getLocation(node).getChunk().isLoaded();
         }
 
         public boolean isInBound(Block block) {
             if (distanceSquared < 0) return true;
             int distX = (int) Math.pow(block.getX() - center.getBlockX(), 2);
             int distZ = (int) Math.pow(block.getZ() - center.getBlockZ(), 2);
-            return distX + distZ <= distanceSquared;
+            return distX + distZ <= distanceSquared && block.getChunk().isLoaded();
         }
 
         public boolean canMove(Node from, Node to) {

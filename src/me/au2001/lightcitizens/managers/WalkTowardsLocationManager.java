@@ -38,6 +38,8 @@ public class WalkTowardsLocationManager extends Manager {
     public void tick() {
 	    if (goal == null) return;
         if (step == null || !step.hasNext()) {
+            if (!goal.isReady()) return;
+
             if (!goal.hasNext()) {
                 step = null;
                 goal = null;
@@ -46,10 +48,8 @@ public class WalkTowardsLocationManager extends Manager {
         }
 
         Location location = step.next();
-        location.setDirection(location.subtract(entity.getLocation()).toVector());
-        entity.setLocation(next);
-
-        entity.setLocation(step.next());
+        location.setDirection(location.clone().subtract(entity.getLocation()).toVector());
+        entity.setLocation(location);
     }
 
 	@SuppressWarnings("unchecked")
@@ -57,11 +57,6 @@ public class WalkTowardsLocationManager extends Manager {
         this.location = location;
 
 		if (location == null) return;
-
-        if (entity.hasManager(WalkTowardsEntityManager.class)) {
-            WalkTowardsEntityManager manager = entity.getManager(WalkTowardsEntityManager.class);
-            if (manager.isWalkingTowardsEntity()) manager.walkTowardsEntity(null);
-        }
 
         calculate();
 	}

@@ -157,6 +157,10 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
         }
     }
 
+    public boolean isReady() {
+        return steps != null;
+    }
+
     public Iterator<MCGoal.Step> iterator() {
         return this;
     }
