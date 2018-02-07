@@ -62,7 +62,7 @@ public class FakeEntity extends Random implements Listener {
 	private String playerListName;
 	private GameMode gamemode;
 	private Object dataWatcher;
-	private int viewDistance;
+	private double viewDistance;
 
 	boolean changed;
 
@@ -503,12 +503,12 @@ public class FakeEntity extends Random implements Listener {
 		this.changed = true;
 	}
 
-	public int getViewDistance() {
+	public double getViewDistance() {
 		return viewDistance;
 	}
 
-	public void setViewDistance(int viewDistance) {
-		if (viewDistance < this.viewDistance) {
+	public void setViewDistance(double viewDistance) {
+		if ((this.viewDistance <= 0 || viewDistance < this.viewDistance) && viewDistance > 0) {
 			List<Player> players = new ArrayList<Player>();
 			for (Player player : getVisibleObservers()) {
 				double distance = serverLocation.distanceSquared(player.getLocation());
@@ -516,14 +516,16 @@ public class FakeEntity extends Random implements Listener {
 			}
 			hideEntity(players);
 			this.viewDistance = viewDistance;
-		} else if (viewDistance < this.viewDistance) {
+		} else if ((viewDistance <= 0 || viewDistance > this.viewDistance) && this.viewDistance > 0) {
 			this.viewDistance = viewDistance;
 			List<Player> players = new ArrayList<Player>();
 			for (Player player : getVisibleObservers()) {
 				double distance = serverLocation.distanceSquared(player.getLocation());
-				if (distance <= viewDistance * viewDistance) players.add(player);
+				if (distance > this.viewDistance * this.viewDistance) players.add(player);
 			}
 			showEntity(players);
+		} else {
+			this.viewDistance = viewDistance;
 		}
 	}
 
@@ -583,7 +585,7 @@ public class FakeEntity extends Random implements Listener {
                 // wouldn't render the skin before the REMOVE_PLAYER packet is received, preventing the skin to load.
 	            if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
 	            if (!serverLocation.getWorld().equals(event.getPlayer().getWorld())) return;
-	            if (viewDistance <= 0 || serverLocation.distanceSquared(event.getPlayer().getLocation()) > viewDistance * viewDistance) return;
+	            if (viewDistance > 0 && serverLocation.distanceSquared(event.getPlayer().getLocation()) > viewDistance * viewDistance) return;
 	            showEntity(Arrays.asList(event.getPlayer()));
             }
         }.runTaskLater(LightCitizens.getInstance(), 20);
