@@ -7,6 +7,7 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Queue;
 
 public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
 
@@ -21,7 +22,7 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
     private int precision;
     private double maxJump;
     private double maxFall;
-    private Graph.MCGraph graph;
+    private MCGraph graph;
     private PathFinder pathFinder;
     private Thread thread;
 
@@ -76,7 +77,7 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
         this.thread = Thread.currentThread();
 
         Location center = new Location(world, (start.getX() + goal.getX())/2, (start.getY() + goal.getY())/2, (start.getZ() + goal.getZ())/2);
-        graph = new Graph.MCGraph(center, (int) (start.distanceSquared(goal) * 1.5 * 1.5), height, maxJump, maxFall);
+        graph = new MCGraph(center, (int) (start.distanceSquared(goal) * 1.5 * 1.5), height, maxJump, maxFall);
         pathFinder = new PathFinder(graph, graph.getNode(start), graph.getNode(goal));
 
         calculate();
@@ -88,10 +89,12 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
             public void run() {
                 List<MCGoal.Step> tmp = new ArrayList<MCGoal.Step>();
 
-                List<Node> path = pathFinder.getPath();
+                Queue<Node> path = pathFinder.getPath();
                 if (path != null) {
-                    for (int i = 1; i < path.size(); i++) {
-                        Node from = path.get(i - 1), to = path.get(i);
+                    Node from = path.poll();
+                    while (!path.isEmpty()) {
+                        Node to = from;
+                        from = path.poll();
                         if (from instanceof Node.Node3D && to instanceof Node.Node3D)
                             tmp.add(new MCGoal.Step((Node.Node3D) from, (Node.Node3D) to, precision));
                     }
