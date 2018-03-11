@@ -1,19 +1,20 @@
 package me.au2001.lightcitizens.managers;
 
 import me.au2001.lightcitizens.FakeEntity;
-import me.au2001.lightcitizens.LightCitizens;
-import me.au2001.lightcitizens.events.FakeEntityClickedEvent;
 import me.au2001.lightcitizens.events.FakeEntityLeftClickedEvent;
+import me.au2001.lightcitizens.nbt.Attributes;
+import me.au2001.lightcitizens.nbt.Attributes.Attribute;
+import me.au2001.lightcitizens.nbt.Attributes.AttributeType;
+import me.au2001.lightcitizens.nbt.Attributes.Operation;
+import me.au2001.lightcitizens.nbt.NbtFactory;
+import me.au2001.lightcitizens.nbt.NbtFactory.NbtCompound;
+import me.au2001.lightcitizens.nbt.NbtFactory.NbtList;
 import me.au2001.lightcitizens.packets.PacketPlayOutAnimation;
 import me.au2001.lightcitizens.packets.PacketPlayOutNamedSoundEffect;
-import me.au2001.lightcitizens.tinyprotocol.Reflection;
-import me.au2001.lightcitizens.tinyprotocol.TinyProtocol;
 import org.bukkit.Location;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-
-import java.lang.reflect.Field;
 
 public class DamageableManager extends Manager {
 
@@ -58,17 +59,20 @@ public class DamageableManager extends Manager {
     }
 
     public void handleDamage(LivingEntity source) {
-        // TODO
-        handleDamage(source.getEyeLocation(), null);
+	    if (source == null) return;
+	    ItemStack item = source.getEquipment() != null? source.getEquipment().getItemInHand() : null;
+        handleDamage(source.getEyeLocation(), item);
     }
 
     public void handleDamage(Location source, ItemStack item) {
-	    // TODO
-        handleDamage(source, 0, 0);
+        if (source == null) return;
+        handleDamage(source, getItemKnockback(item), getItemDamage(item));
     }
 
     public void handleDamage(Location source, double knockback, float damage) {
         setHealth(health - damage * 100F / ((float) protection + 100F));
+
+        // TODO: Knockback
 
         if (health > 0) {
             PacketPlayOutAnimation move = new PacketPlayOutAnimation();
@@ -86,4 +90,55 @@ public class DamageableManager extends Manager {
             for (Player observer : entity.getObservers()) sound.send(observer);
         }
     }
+
+    private static float getItemDamage(ItemStack item) {
+        NbtCompound nbtCompound = NbtFactory.fromItemTag(NbtFactory.getCraftItemStack(item));
+        NbtList attributeList = nbtCompound.getList("Attributes", false);
+
+        double damage = 2.0;
+        if (attributeList != null) {
+            for (Object attribute : attributeList) {
+                String attributeName = ((NbtCompound) attribute).getString("Name", "");
+                if (!attributeName.equals(AttributeType.GENERIC_ATTACK_DAMAGE.getMinecraftId())) continue;
+                damage = ((NbtCompound) attribute).getDouble("Base", damage);
+                break;
+            }
+        }
+
+        Attributes attributes = new Attributes(item);
+
+        for (int i = 0; i < attributes.size(); i++) {
+            Attribute attribute = attributes.get(i);
+            if (!attribute.getAttributeType().equals(AttributeType.GENERIC_ATTACK_DAMAGE)) continue;
+            if (!attribute.getOperation().equals(Operation.ADD_NUMBER)) continue;
+
+            damage += attribute.getAmount();
+        }
+
+        double muliplyTotal = 1;
+        for (int i = 0; i < attributes.size(); i++) {
+            Attribute attribute = attributes.get(i);
+            if (!attribute.getAttributeType().equals(AttributeType.GENERIC_ATTACK_DAMAGE)) continue;
+            if (!attribute.getOperation().equals(Operation.MULTIPLY_PERCENTAGE)) continue;
+
+            muliplyTotal += attribute.getAmount();
+        }
+        damage *= muliplyTotal;
+
+        for (int i = 0; i < attributes.size(); i++) {
+            Attribute attribute = attributes.get(i);
+            if (!attribute.getAttributeType().equals(AttributeType.GENERIC_ATTACK_DAMAGE)) continue;
+            if (!attribute.getOperation().equals(Operation.ADD_PERCENTAGE)) continue;
+
+            damage *= 1 + attribute.getAmount();
+        }
+
+        return (float) Math.max(Math.min(damage, 0), 2048);
+    }
+
+    private static double getItemKnockback(ItemStack item) {
+        // TODO: Knockback
+        return 0;
+    }
+
 }
