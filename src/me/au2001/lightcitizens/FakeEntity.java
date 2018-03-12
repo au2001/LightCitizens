@@ -13,6 +13,9 @@ import me.au2001.lightcitizens.tinyprotocol.Reflection;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
@@ -27,6 +30,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -655,6 +659,42 @@ public class FakeEntity extends Random implements Listener {
 
 		if (from && !to) hideEntity(Arrays.asList(event.getPlayer()));
 		else if (!from && to) showEntity(Arrays.asList(event.getPlayer()));
+	}
+
+	public boolean hasLineOfSight(Entity entity) {
+		if (entity instanceof LivingEntity) return hasLineOfSight((LivingEntity) entity);
+		else return hasLineOfSight(entity.getLocation());
+	}
+
+	public boolean hasLineOfSight(LivingEntity entity) {
+		return hasLineOfSight(entity.getEyeLocation());
+	}
+
+	public boolean hasLineOfSight(Location location) {
+		if (location == null || !this.serverLocation.getWorld().equals(location.getWorld())) return false;
+
+		Location current = this.serverLocation.clone().add(0, 1.62, 0); // Eye height (1.54 while sneaking)
+		Vector direction = current.toVector().subtract(location.toVector());
+		Block target = location.getBlock(), block = current.getBlock();
+
+		double distance = current.distanceSquared(location);
+		double precision;
+		if (distance > 1000 * 1000) precision = 5;
+		else if (distance > 500 * 500) precision = 2;
+		else if (distance > 100 * 100) precision = 1;
+		else if (distance > 50 * 50) precision = 0.2;
+		else if (distance > 10 * 10) precision = 0.1;
+		else if (distance > 1 * 1) precision = 0.02;
+		else precision = 0.002;
+
+		direction = direction.normalize().multiply(precision);
+		while (!block.equals(target)) {
+			if (block.getType().isOccluding()) return false;
+			location.add(direction);
+			block = location.getBlock();
+		}
+
+		return true;
 	}
 
 }

@@ -7,6 +7,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.material.*;
 
+import java.util.ArrayList;
 import java.util.Map;
 
 public class MCGraph extends Graph {
@@ -116,7 +117,7 @@ public class MCGraph extends Graph {
         neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y - 1, ((Node3D) node).z), 1.0);
         neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y + 1, ((Node3D) node).z), 1.0);
 
-        for (Node neighbor : neighbors.keySet()) {
+        for (Node neighbor : new ArrayList<Node>(neighbors.keySet())) {
             Block block = getBlock((Node3D) neighbor);
 
             if (!isInBound(block)) {

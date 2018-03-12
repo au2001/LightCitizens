@@ -80,6 +80,7 @@ public class AttackEntityManager extends Manager {
         if (lastAttack < attackDelay) return;
         if (target instanceof LivingEntity && ((LivingEntity) target).getNoDamageTicks() > 0) return;
         if (target instanceof Player && ((Player) target).getGameMode().equals(GameMode.CREATIVE)) return;
+        if (!entity.hasLineOfSight(target)) return;
 
         if (attackRange > 0 && target.getLocation().distanceSquared(entity.getLocation()) <= attackRange * attackRange) {
             PacketPlayOutAnimation move = new PacketPlayOutAnimation();
