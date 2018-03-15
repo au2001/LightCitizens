@@ -232,7 +232,7 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
 
         private void calculate() {
             Vector direction = this.direction.clone();
-            Location location = graph.getBlock(from).getLocation().add(0.5, 0, 0.5);
+            Location location = new Location(graph.getWorld(), from.x + 0.5, from.y, from.z + 0.5);
 
             if (from.y != to.y && (from.x != to.x || from.z != to.z)) {
                 List<Double> heights = jump(from.y, to.y, 1.0 / (double) precision);

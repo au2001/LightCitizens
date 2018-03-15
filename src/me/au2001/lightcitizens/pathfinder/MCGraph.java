@@ -1,14 +1,19 @@
 package me.au2001.lightcitizens.pathfinder;
 
+import me.au2001.lightcitizens.LightCitizens;
 import me.au2001.lightcitizens.pathfinder.Node.Node3D;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.material.*;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class MCGraph extends Graph {
 
@@ -40,6 +45,10 @@ public class MCGraph extends Graph {
         this.maxFall = maxFall;
     }
 
+    public World getWorld() {
+        return world;
+    }
+
     public Node3D getNode(Location location) {
         return getNode(location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
@@ -56,7 +65,23 @@ public class MCGraph extends Graph {
         int x = (int) Math.floor(node.x);
         int y = (int) Math.floor(node.y);
         int z = (int) Math.floor(node.z);
-        return world.getBlockAt(x, y, z);
+        if (Bukkit.isPrimaryThread()) return world.getBlockAt(x, y, z);
+
+        AtomicReference<Block> block = new AtomicReference<Block>(null);
+        AtomicBoolean available = new AtomicBoolean(false);
+        new BukkitRunnable() {
+            public void run() {
+                block.set(world.getBlockAt(x, y, z));
+                available.set(true);
+            }
+        }.runTask(LightCitizens.getInstance());
+
+        while (!available.get()) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {}
+        }
+        return block.get();
     }
 
     public Location getLocation(Node3D node) {
