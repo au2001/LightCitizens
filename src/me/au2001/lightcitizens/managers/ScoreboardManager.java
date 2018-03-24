@@ -94,17 +94,17 @@ public class ScoreboardManager extends Manager {
         int value = 0;
 
         switch (objective.getCriteria().toLowerCase()) {
-            case "deathCount":
+            case "deathcount":
                 if (entity.hasManager(DamageableManager.class))
                     value = entity.getManager(DamageableManager.class).getDeathCount();
                 break;
 
-            case "playerKillCount":
+            case "playerkillcount":
                 if (entity.hasManager(AttackEntityManager.class))
                     value = entity.getManager(AttackEntityManager.class).getPlayerKillCount();
                 break;
 
-            case "totalKillCount":
+            case "totalkillcount":
                 if (entity.hasManager(AttackEntityManager.class))
                     value = entity.getManager(AttackEntityManager.class).getTotalKillCount();
                 break;
@@ -142,7 +142,7 @@ public class ScoreboardManager extends Manager {
         }
 
         // TODO: teamkill.<team>
-        // TODO: killedByTeam.<team>
+        // TODO: killedbyteam.<team>
         // TODO: stat.<stat>
         // TODO: achievement.<achievement>
 
