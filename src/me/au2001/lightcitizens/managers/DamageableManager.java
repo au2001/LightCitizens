@@ -35,7 +35,8 @@ public class DamageableManager extends Manager {
     }
 
     public void setHealth(float health) {
-        this.health = Math.max(health, 0);
+	    if (health < 0) health = 0;
+        this.health = health;
         if (health <= 0) {
             deathCount++;
             entity.destroy(true);
@@ -92,10 +93,12 @@ public class DamageableManager extends Manager {
     }
 
     private static float getItemDamage(ItemStack item) {
+        double damage = 2.0;
+	    if (item == null) return (float) Math.max(Math.min(damage, 0), 2048);
+
         NbtCompound nbtCompound = NbtFactory.fromItemTag(NbtFactory.getCraftItemStack(item));
         NbtList attributeList = nbtCompound.getList("Attributes", false);
 
-        double damage = 2.0;
         if (attributeList != null) {
             for (Object attribute : attributeList) {
                 String attributeName = ((NbtCompound) attribute).getString("Name", "");
@@ -137,6 +140,7 @@ public class DamageableManager extends Manager {
     }
 
     private static double getItemKnockback(ItemStack item) {
+	    if (item == null) return 0;
         // TODO: Knockback
         return 0;
     }

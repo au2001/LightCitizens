@@ -308,10 +308,10 @@ public class FakeEntity extends Random implements Listener {
 
 	        new BukkitRunnable() {
                 public void run() {
-                    for (Player player : getVisibleObservers()) removeObserver(player);
+                    for (Player player : getObservers()) removeObserver(player);
                 }
             }.runTaskLater(LightCitizens.getInstance(), 20);
-        } else for (Player player : getVisibleObservers()) removeObserver(player);
+        } else for (Player player : getObservers()) removeObserver(player);
 
         Bukkit.getPluginManager().callEvent(new FakeEntityDestroyedEvent(this));
         for (Class<? extends Manager> manager : new ArrayList<Class<? extends Manager>>(managers.keySet())) removeManager(manager);
