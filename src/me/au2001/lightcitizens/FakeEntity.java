@@ -289,8 +289,8 @@ public class FakeEntity extends Random implements Listener {
 
     public void destroy(boolean animation) {
 	    if (animation) {
-	        // FakeEntityEquipment equipment = new FakeEntityEquipment(this, null, null, null, null, null);
-            // for (Player observer : getVisibleObservers()) equipment.send(observer);
+	    	FakeEntityEquipment equipment = new FakeEntityEquipment(this, null, null, null, null, null);
+	    	for (Player observer : getVisibleObservers()) equipment.send(observer);
 
             PacketPlayOutNamedSoundEffect sound = new PacketPlayOutNamedSoundEffect();
             sound.set("a", "game.player.die");
@@ -367,7 +367,7 @@ public class FakeEntity extends Random implements Listener {
 	}
 
 	public List<Player> getObservers() {
-		return Collections.unmodifiableList(observers);
+		return Collections.unmodifiableList(new ArrayList<Player>(observers));
 	}
 
 	public boolean isObserver(Player player) {
