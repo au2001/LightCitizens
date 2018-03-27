@@ -63,12 +63,18 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
     }
 
     public MCGoal(Location start, Location goal, double distance, double height, int precision, double maxJump, double maxFall) {
-        if (!start.getWorld().equals(goal.getWorld()))
+        if (start.getWorld() == null && goal.getWorld() != null) {
+            start = start.clone();
+            start.setWorld(goal.getWorld());
+        } else if (goal.getWorld() == null && start.getWorld() != null) {
+            goal = goal.clone();
+            goal.setWorld(start.getWorld());
+        } else if (!start.getWorld().equals(goal.getWorld()))
             throw new IllegalArgumentException("Start and goal locations must be in the same world!");
 
         this.world = start.getWorld();
-        this.start = start;
-        this.goal = goal;
+        this.start = start.clone();
+        this.goal = goal.clone();
         this.distance = distance;
         this.height = height;
         this.precision = precision > 0? precision : 20;

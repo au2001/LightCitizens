@@ -1,19 +1,14 @@
 package me.au2001.lightcitizens.pathfinder;
 
-import me.au2001.lightcitizens.LightCitizens;
 import me.au2001.lightcitizens.pathfinder.Node.Node3D;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.material.*;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class MCGraph extends Graph {
 
@@ -65,23 +60,27 @@ public class MCGraph extends Graph {
         int x = (int) Math.floor(node.x);
         int y = (int) Math.floor(node.y);
         int z = (int) Math.floor(node.z);
-        if (Bukkit.isPrimaryThread()) return world.getBlockAt(x, y, z);
+        if (!world.isChunkLoaded(Math.floorDiv(x, 16), Math.floorDiv(z, 16)))
+            return null;
 
-        AtomicReference<Block> block = new AtomicReference<Block>(null);
-        AtomicBoolean available = new AtomicBoolean(false);
-        new BukkitRunnable() {
-            public void run() {
-                block.set(world.getBlockAt(x, y, z));
-                available.set(true);
-            }
-        }.runTask(LightCitizens.getInstance());
-
-        while (!available.get()) {
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {}
-        }
-        return block.get();
+        return world.getBlockAt(x, y, z);
+//        if (Bukkit.isPrimaryThread()) return world.getBlockAt(x, y, z);
+//
+//        AtomicReference<Block> block = new AtomicReference<Block>(null);
+//        AtomicBoolean available = new AtomicBoolean(false);
+//        new BukkitRunnable() {
+//            public void run() {
+//                block.set(world.getBlockAt(x, y, z));
+//                available.set(true);
+//            }
+//        }.runTask(LightCitizens.getInstance());
+//
+//        while (!available.get()) {
+//            try {
+//                Thread.sleep(1);
+//            } catch (InterruptedException e) {}
+//        }
+//        return block.get();
     }
 
     public Location getLocation(Node3D node) {
@@ -96,6 +95,7 @@ public class MCGraph extends Graph {
     }
 
     public boolean isInBound(Block block) {
+        if (block == null) return false;
         if (distanceSquared < 0) return true;
         int distX = (int) Math.pow(block.getX() - center.getBlockX(), 2);
         int distZ = (int) Math.pow(block.getZ() - center.getBlockZ(), 2);
@@ -135,15 +135,17 @@ public class MCGraph extends Graph {
         if (!(node instanceof Node3D)) return neighbors;
 
         Block from = getBlock((Node3D) node);
-        neighbors.put(new Node3D(((Node3D) node).x - 1, ((Node3D) node).y, ((Node3D) node).z), 1.0);
-        neighbors.put(new Node3D(((Node3D) node).x + 1, ((Node3D) node).y, ((Node3D) node).z), 1.0);
-        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y, ((Node3D) node).z - 1), 1.0);
-        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y, ((Node3D) node).z + 1), 1.0);
-        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y - 1, ((Node3D) node).z), 1.0);
-        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y + 1, ((Node3D) node).z), 1.0);
+        if (from == null) return neighbors;
+//        neighbors.put(new Node3D(((Node3D) node).x - 1, ((Node3D) node).y, ((Node3D) node).z), 1.0);
+//        neighbors.put(new Node3D(((Node3D) node).x + 1, ((Node3D) node).y, ((Node3D) node).z), 1.0);
+//        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y, ((Node3D) node).z - 1), 1.0);
+//        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y, ((Node3D) node).z + 1), 1.0);
+//        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y - 1, ((Node3D) node).z), 1.0);
+//        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y + 1, ((Node3D) node).z), 1.0);
 
         for (Node neighbor : new ArrayList<Node>(neighbors.keySet())) {
             Block block = getBlock((Node3D) neighbor);
+            if (block == null) continue;
 
             if (!isInBound(block)) {
                 neighbors.remove(neighbor);
