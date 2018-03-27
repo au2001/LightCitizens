@@ -121,28 +121,28 @@ public class FakeEntityEquipment {
             equip.set("c", hasItemInHand()? ITEM_TO_NMS.invoke(null, hand) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
             equip.send(player);
 
-            equip = new PacketPlayOutEntityEquipment();
-            equip.set("a", entity.getEntityId());
-            equip.set("b", 1);
-            equip.set("c", hasHelmet()? ITEM_TO_NMS.invoke(null, helmet) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
-            equip.send(player);
+	        equip = new PacketPlayOutEntityEquipment();
+	        equip.set("a", entity.getEntityId());
+	        equip.set("b", 1);
+	        equip.set("c", hasBoots()? ITEM_TO_NMS.invoke(null, boots) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
+	        equip.send(player);
 
-            equip = new PacketPlayOutEntityEquipment();
-            equip.set("a", entity.getEntityId());
-            equip.set("b", 2);
-            equip.set("c", hasChestplate()? ITEM_TO_NMS.invoke(null, chestplate) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
-            equip.send(player);
+	        equip = new PacketPlayOutEntityEquipment();
+	        equip.set("a", entity.getEntityId());
+	        equip.set("b", 2);
+	        equip.set("c", hasLeggings()? ITEM_TO_NMS.invoke(null, leggings) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
+	        equip.send(player);
 
-            equip = new PacketPlayOutEntityEquipment();
-            equip.set("a", entity.getEntityId());
-            equip.set("b", 3);
-            equip.set("c", hasLeggings()? ITEM_TO_NMS.invoke(null, leggings) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
-            equip.send(player);
+	        equip = new PacketPlayOutEntityEquipment();
+	        equip.set("a", entity.getEntityId());
+	        equip.set("b", 3);
+	        equip.set("c", hasChestplate()? ITEM_TO_NMS.invoke(null, chestplate) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
+	        equip.send(player);
 
-            equip = new PacketPlayOutEntityEquipment();
-            equip.set("a", entity.getEntityId());
+	        equip = new PacketPlayOutEntityEquipment();
+	        equip.set("a", entity.getEntityId());
             equip.set("b", 4);
-            equip.set("c", hasBoots()? ITEM_TO_NMS.invoke(null, boots) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
+            equip.set("c", hasHelmet()? ITEM_TO_NMS.invoke(null, helmet) : ITEM_TO_NMS.invoke(null, new ItemStack(Material.AIR)));
             equip.send(player);
         } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
