@@ -79,7 +79,7 @@ public class DamageableManager extends Manager {
             PacketPlayOutAnimation move = new PacketPlayOutAnimation();
             move.set("a", entity.getEntityId());
             move.set("b", 1); // 0: Swing main arm, 1: Take damage, 2: Leave bed, 3: Swing offhand, 4: Critical effect, 5: Magic critical effect
-            for (Player observer : entity.getObservers()) move.send(observer);
+            for (Player observer : entity.getVisibleObservers()) move.send(observer);
 
             PacketPlayOutNamedSoundEffect sound = new PacketPlayOutNamedSoundEffect();
             sound.set("a", "game.player.hurt");
@@ -88,7 +88,7 @@ public class DamageableManager extends Manager {
             sound.set("d", (int) (entity.getLocation().getZ() * 8));
             sound.set("e", 1F);
             sound.set("f", (int) (((entity.nextFloat() - entity.nextFloat()) * 0.2F + 1.0F) * 63.0F));
-            for (Player observer : entity.getObservers()) sound.send(observer);
+            for (Player observer : entity.getVisibleObservers()) sound.send(observer);
         }
     }
 

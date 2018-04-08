@@ -1,13 +1,12 @@
 package me.au2001.lightcitizens.managers;
 
-import java.util.HashMap;
-
+import me.au2001.lightcitizens.FakeEntity;
 import me.au2001.lightcitizens.packets.PacketPlayOutEntityHeadRotation;
+import me.au2001.lightcitizens.packets.PacketPlayOutRelEntityMoveLook;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
-import me.au2001.lightcitizens.FakeEntity;
-import me.au2001.lightcitizens.packets.PacketPlayOutRelEntityMoveLook;
+import java.util.HashMap;
 
 public class LookCloseManager extends Manager {
 
@@ -19,7 +18,7 @@ public class LookCloseManager extends Manager {
 	}
 	
 	public void tick() {
-		for (Player observer : entity.getObservers()) {
+		for (Player observer : entity.getVisibleObservers()) {
 			Location orientation = entity.getLocation();
 			orientation.setDirection(observer.getLocation().subtract(entity.getLocation()).toVector());
 			

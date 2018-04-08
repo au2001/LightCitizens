@@ -275,19 +275,6 @@ public class FakeEntity extends Random implements Listener {
 		for (Player player : players) destroy.send(player);
 	}
 
-	private List<Player> getVisibleObservers() {
-		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded())
-			return new ArrayList<Player>();
-
-		List<Player> observers = new ArrayList<Player>();
-		for (Player player : this.observers) {
-			if (!serverLocation.getWorld().equals(player.getWorld())) continue;
-			if (viewDistance > 0 && serverLocation.distanceSquared(player.getLocation()) > viewDistance * viewDistance) continue;
-			observers.add(player);
-		}
-		return observers;
-	}
-
 	public void destroy() {
 		destroy(false);
 	}
@@ -401,6 +388,19 @@ public class FakeEntity extends Random implements Listener {
             observers.remove(player);
             for (Manager manager : new ArrayList<Manager>(managers.values())) manager.onObserverRemoved(player);
         }
+	}
+
+	public List<Player> getVisibleObservers() {
+		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded())
+			return new ArrayList<Player>();
+
+		List<Player> observers = new ArrayList<Player>();
+		for (Player player : this.observers) {
+			if (!serverLocation.getWorld().equals(player.getWorld())) continue;
+			if (viewDistance > 0 && serverLocation.distanceSquared(player.getLocation()) > viewDistance * viewDistance) continue;
+			observers.add(player);
+		}
+		return observers;
 	}
 
 	public int getEntityId() {

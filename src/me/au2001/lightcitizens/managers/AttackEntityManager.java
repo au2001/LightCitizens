@@ -62,7 +62,7 @@ public class AttackEntityManager extends Manager {
                 PacketPlayOutEntityHeadRotation look = new PacketPlayOutEntityHeadRotation();
                 look.set("a", entity.getEntityId());
                 look.set("b", yaw);
-                for (Player observer : entity.getObservers()) look.send(observer);
+                for (Player observer : entity.getVisibleObservers()) look.send(observer);
             }
 
             if (updateyaw || updatepitch) {
@@ -73,7 +73,7 @@ public class AttackEntityManager extends Manager {
                 move.set("d", (byte) 0);
                 move.set("e", yaw);
                 move.set("f", pitch);
-                for (Player observer : entity.getObservers()) move.send(observer);
+                for (Player observer : entity.getVisibleObservers()) move.send(observer);
             }
         }
 
@@ -86,7 +86,7 @@ public class AttackEntityManager extends Manager {
             PacketPlayOutAnimation move = new PacketPlayOutAnimation();
             move.set("a", entity.getEntityId());
             move.set("b", 0); // 0: Swing main arm, 1: Take damage, 2: Leave bed, 3: Swing offhand, 4: Critical effect, 5: Magic critical effect
-            for (Player observer : entity.getObservers()) move.send(observer);
+            for (Player observer : entity.getVisibleObservers()) move.send(observer);
 
             int nodamage = -1;
             if (target instanceof LivingEntity) nodamage = ((LivingEntity) target).getNoDamageTicks();
