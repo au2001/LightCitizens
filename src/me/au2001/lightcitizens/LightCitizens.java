@@ -24,6 +24,7 @@ public class LightCitizens extends JavaPlugin {
 
 	private static LightCitizens instance;
 
+	private long ticks = 0;
 	private TinyProtocol protocol;
 	private PacketListener packetListener;
 
@@ -38,7 +39,7 @@ public class LightCitizens extends JavaPlugin {
 			e.printStackTrace();
 		}
 	}
-	
+
 	public void onEnable() {
 		instance = this;
 
@@ -80,9 +81,10 @@ public class LightCitizens extends JavaPlugin {
 
 		};
 		packetListener.register();
-		
+
 		new BukkitRunnable() {
 			public void run() {
+				ticks++;
 				for (FakeEntity entity : FakeEntity.entities) {
 					entity.update();
 					synchronized (entity) {
@@ -91,7 +93,7 @@ public class LightCitizens extends JavaPlugin {
 					}
 				}
 			}
-		}.runTaskTimer(this, 0, 0);
+		}.runTaskTimerAsynchronously(this, 0, 0);
 	}
 	
 	public void onDisable() {
@@ -100,6 +102,10 @@ public class LightCitizens extends JavaPlugin {
 		instance = null;
 		protocol = null;
 		packetListener = null;
+	}
+
+	public static long getTickTime() {
+		return instance.ticks;
 	}
 
 	public static void sendPacket(Player player, Object packet) {

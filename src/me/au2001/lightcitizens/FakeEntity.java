@@ -29,7 +29,6 @@ import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Constructor;
@@ -48,7 +47,7 @@ public class FakeEntity extends Random implements Listener {
 	private static Constructor<?> DATA_WATCHER, PLAYER_INFO_DATA;
 	private static Method CHAT_SERIALIZER, ENUM_NAME, GET_GAMEMODE;
 
-	private HashMap<Player, BukkitTask> tablisttasks = new HashMap<Player, BukkitTask>();
+	private HashMap<Player, Long> tablisttime = new HashMap<Player, Long>();
 	private HashMap<Class<? extends Manager>, Manager> managers = new HashMap<Class<? extends Manager>, Manager>();
 	private List<Player> observers = new ArrayList<Player>();
 	private Location clientLocation;
@@ -154,7 +153,10 @@ public class FakeEntity extends Random implements Listener {
 			showEntity();
 			clientLocation = serverLocation.clone();
 			changed = false;
-		} else if (!serverLocation.equals(clientLocation)) {
+			return;
+		}
+
+		if (!serverLocation.equals(clientLocation)) {
 			PacketPlayOutEntityTeleport move = new PacketPlayOutEntityTeleport();
 			move.set("a", entityId);
 			move.set("b", (int) (serverLocation.getX() * 32.0D));
@@ -171,6 +173,30 @@ public class FakeEntity extends Random implements Listener {
 
 			clientLocation = serverLocation.clone();
 		}
+
+		List<Player> players = new ArrayList<Player>();
+		for (Entry<Player, Long> entry : tablisttime.entrySet())
+			if (entry.getValue() >= LightCitizens.getTickTime()) players.add(entry.getKey());
+		if (!players.isEmpty()) {
+			try {
+				PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
+				for (Object action : PLAYER_INFO_ACTION.getEnumConstants()) {
+					if (ENUM_NAME.invoke(action).equals("REMOVE_PLAYER")) {
+						info.set("a", action);
+						break;
+					}
+				}
+				List<Object> data = (List<Object>) info.get("b");
+				data.add(PLAYER_INFO_DATA.newInstance(info.toPacket(), profile, ping, GET_GAMEMODE.invoke(null, gamemode.getValue()), CHAT_SERIALIZER.invoke(null, "{\"text\":\"\"}")));
+				// info.set("b", data);
+				for (Player player : players) {
+					info.send(player);
+					tablisttime.remove(player);
+				}
+			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	private void showEntity() {
@@ -180,7 +206,7 @@ public class FakeEntity extends Random implements Listener {
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	private void showEntity(List<Player> players) {
 		for (Player player : players)
-			if (tablisttasks.containsKey(player)) tablisttasks.remove(player).cancel();
+			if (tablisttime.containsKey(player)) tablisttime.remove(player);
 
 		try {
 			PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
@@ -214,29 +240,8 @@ public class FakeEntity extends Random implements Listener {
 		for (Player player : players) equipment.send(player);
 		
 		if (playerListName == null) {
-			for (Player player : players) {
-				tablisttasks.put(player, new BukkitRunnable() {
-					public void run() {
-						try {
-							PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();
-							for (Object action : PLAYER_INFO_ACTION.getEnumConstants()) {
-								if (ENUM_NAME.invoke(action).equals("REMOVE_PLAYER")) {
-									info.set("a", action);
-									break;
-								}
-							}
-							List<Object> data = (List<Object>) info.get("b");
-							data.add(PLAYER_INFO_DATA.newInstance(info.toPacket(), profile, ping, GET_GAMEMODE.invoke(null, gamemode.getValue()), CHAT_SERIALIZER.invoke(null, "{\"text\":\"\"}")));
-							// info.set("b", data);
-							info.send(player);
-						} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
-							e.printStackTrace();
-						}
-
-						tablisttasks.remove(player);
-					}
-				}.runTaskLater(LightCitizens.getInstance(), LightCitizens.getPingTicks(player) * 2 + 5));
-			}
+			for (Player player : players)
+				tablisttime.put(player, LightCitizens.getTickTime() + LightCitizens.getPingTicks(player) * 2 + 5);
 		}
 	}
 
@@ -247,7 +252,7 @@ public class FakeEntity extends Random implements Listener {
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	private void hideEntity(List<Player> players) {
 		for (Player player : players)
-			if (tablisttasks.containsKey(player)) tablisttasks.remove(player).cancel();
+			if (tablisttime.containsKey(player)) tablisttime.remove(player);
 
 		try {
 			PacketPlayOutPlayerInfo info = new PacketPlayOutPlayerInfo();

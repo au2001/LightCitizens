@@ -1,10 +1,8 @@
 package me.au2001.lightcitizens.managers;
 
 import me.au2001.lightcitizens.FakeEntity;
-import me.au2001.lightcitizens.LightCitizens;
 import me.au2001.lightcitizens.pathfinder.MCGoal;
 import org.bukkit.Location;
-import org.bukkit.scheduler.BukkitRunnable;
 
 public class WalkTowardsLocationManager extends Manager {
 
@@ -24,11 +22,11 @@ public class WalkTowardsLocationManager extends Manager {
 	    goal = null;
 	    step = null;
 	    if (location == null) return;
-	    new BukkitRunnable() {
-            public void run() {
+//	    new BukkitRunnable() {
+//            public void run() {
                 goal = new MCGoal(entity.getLocation(), location, distance, 2.0, (int) (20 / speed / 3), maxJump, maxFall);
-            }
-        }.runTaskAsynchronously(LightCitizens.getInstance());
+//            }
+//        }.runTaskAsynchronously(LightCitizens.getInstance());
     }
 
     public void onManagerRemoved() {
