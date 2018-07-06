@@ -391,7 +391,7 @@ public class FakeEntity extends Random implements Listener {
 	}
 
 	public List<Player> getVisibleObservers() {
-		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded())
+		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null) // || !serverLocation.getChunk().isLoaded()
 			return new ArrayList<Player>();
 
 		List<Player> observers = new ArrayList<Player>();
@@ -677,23 +677,26 @@ public class FakeEntity extends Random implements Listener {
 
 	public boolean hasLineOfSight(Location location) {
 		if (location == null || !this.serverLocation.getWorld().equals(location.getWorld())) return false;
+		location = location.clone();
 
 		Location current = this.serverLocation.clone().add(0, 1.62, 0); // Eye height (1.54 while sneaking)
-		Vector direction = current.toVector().subtract(location.toVector());
+		Vector direction = location.toVector().subtract(current.toVector());
 		Block target = location.getBlock(), block = current.getBlock();
 
-		double distance = current.distanceSquared(location);
+		double distance = current.distance(location);
+		if (distance <= 0) return true;
+
 		double precision;
-		if (distance > 1000 * 1000) precision = 5;
-		else if (distance > 500 * 500) precision = 2;
-		else if (distance > 100 * 100) precision = 1;
-		else if (distance > 50 * 50) precision = 0.2;
-		else if (distance > 10 * 10) precision = 0.1;
-		else if (distance > 1 * 1) precision = 0.02;
+		if (distance > 1000) precision = 5.0;
+		else if (distance > 500) precision = 2.0;
+		else if (distance > 100) precision = 1.0;
+		else if (distance > 50) precision = 0.2;
+		else if (distance > 10) precision = 0.1;
+		else if (distance > 1) precision = 0.02;
 		else precision = 0.002;
 
-		direction = direction.normalize().multiply(precision);
-		while (!block.equals(target)) {
+		direction = direction.multiply(precision / distance);
+		for (int i = 0; i < distance / precision; i++) {
 			if (block.getType().isOccluding()) return false;
 			location.add(direction);
 			block = location.getBlock();
