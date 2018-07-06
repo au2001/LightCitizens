@@ -17,7 +17,7 @@ public class LookCloseManager extends Manager {
 		super(entity);
 	}
 	
-	public void tick() {
+	public void syncTick() {
 		for (Player observer : entity.getVisibleObservers()) {
 			Location orientation = entity.getLocation();
 			orientation.setDirection(observer.getLocation().subtract(entity.getLocation()).toVector());

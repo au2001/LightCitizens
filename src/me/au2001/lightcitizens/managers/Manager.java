@@ -18,6 +18,7 @@ public abstract class Manager implements Listener {
 	}
 	
 	public void tick() {}
+	public void syncTick() {}
 	public void onManagerAdded() {}
 	public void onManagerRemoved() {}
 	public void onObserverAdded(Player player) {}

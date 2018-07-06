@@ -15,6 +15,8 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map.Entry;
 
 public class LightCitizens extends JavaPlugin {
@@ -25,6 +27,7 @@ public class LightCitizens extends JavaPlugin {
 	private static LightCitizens instance;
 
 	private long ticks = 0;
+	private List<Entry<Packet, Player>> packetsIn = new ArrayList<Entry<Packet, Player>>();
 	private TinyProtocol protocol;
 	private PacketListener packetListener;
 
@@ -61,21 +64,19 @@ public class LightCitizens extends JavaPlugin {
 
 			public void onPacketInAsync(Player sender, Channel channel, Packet packet) {
 				if (USE_ENTITY.isInstance(packet.toPacket())) {
-					new BukkitRunnable() {
-						public void run() {
-							try {
-								int entityId = A_FIELD.getInt(packet.toPacket());
-								Object raw = ACTION_FIELD.get(packet.toPacket());
-								String action = (String) raw.getClass().getMethod("name").invoke(raw);
-
-								if (action.equals("INTERACT")) Bukkit.getPluginManager().callEvent(new FakeEntityRightClickedEvent(entityId, sender, packet));
-								else if (action.equals("ATTACK")) Bukkit.getPluginManager().callEvent(new FakeEntityLeftClickedEvent(entityId, sender, packet));
-
-							} catch (IllegalArgumentException | IllegalAccessException | SecurityException | InvocationTargetException | NoSuchMethodException e) {
-								e.printStackTrace();
-							}
+					packetsIn.add(new Entry<Packet, Player>() {
+						public Packet getKey() {
+							return packet;
 						}
-					}.runTask(instance);
+
+						public Player getValue() {
+							return sender;
+						}
+
+						public Player setValue(Player value) {
+							throw new UnsupportedOperationException("Can't set value on anonymous Entry.");
+						}
+					});
 				}
 			}
 
@@ -85,6 +86,35 @@ public class LightCitizens extends JavaPlugin {
 		new BukkitRunnable() {
 			public void run() {
 				ticks++;
+
+				for (FakeEntity entity : FakeEntity.entities) {
+					entity.update();
+					synchronized (entity) {
+						for (Entry<Class<? extends Manager>, Manager> manager : entity.getManagers().entrySet())
+							manager.getValue().syncTick();
+					}
+				}
+
+				for (Entry<Packet, Player> entry : packetsIn) {
+					Packet packet = entry.getKey();
+					Player sender = entry.getValue();
+					try {
+						int entityId = A_FIELD.getInt(packet.toPacket());
+						Object raw = ACTION_FIELD.get(packet.toPacket());
+						String action = (String) raw.getClass().getMethod("name").invoke(raw);
+
+						if (action.equals("INTERACT")) Bukkit.getPluginManager().callEvent(new FakeEntityRightClickedEvent(entityId, sender, packet));
+						else if (action.equals("ATTACK")) Bukkit.getPluginManager().callEvent(new FakeEntityLeftClickedEvent(entityId, sender, packet));
+					} catch (IllegalArgumentException | IllegalAccessException | SecurityException | InvocationTargetException | NoSuchMethodException e) {
+						e.printStackTrace();
+					}
+				}
+				packetsIn.clear();
+			}
+		}.runTaskTimer(this, 20, 0);
+
+		new BukkitRunnable() {
+			public void run() {
 				for (FakeEntity entity : FakeEntity.entities) {
 					entity.update();
 					synchronized (entity) {

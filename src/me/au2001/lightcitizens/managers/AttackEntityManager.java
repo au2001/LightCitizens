@@ -37,15 +37,14 @@ public class AttackEntityManager extends Manager {
     }
 
     public void tick() {
-	    if (lastAttack < attackDelay) lastAttack++;
-	    if (target == null) return;
-	    if (!target.isValid() || target.isDead() || !target.getWorld().equals(entity.getLocation().getWorld())) {
-	        target = null;
-	        return;
+        if (target == null) return;
+        if (!target.isValid() || target.isDead() || !target.getWorld().equals(entity.getLocation().getWorld())) {
+            target = null;
+            return;
         }
         if (target instanceof Player && ((Player) target).getGameMode().equals(GameMode.SPECTATOR)) {
-	        target = null;
-	        return;
+            target = null;
+            return;
         }
 
         Location orientation = entity.getLocation();
@@ -76,6 +75,19 @@ public class AttackEntityManager extends Manager {
                 for (Player observer : entity.getVisibleObservers()) move.send(observer);
             }
         }
+    }
+
+    public void syncTick() {
+	    if (lastAttack < attackDelay) lastAttack++;
+	    if (target == null) return;
+	    if (!target.isValid() || target.isDead() || !target.getWorld().equals(entity.getLocation().getWorld())) {
+	        target = null;
+	        return;
+        }
+        if (target instanceof Player && ((Player) target).getGameMode().equals(GameMode.SPECTATOR)) {
+	        target = null;
+	        return;
+        }
 
         if (lastAttack < attackDelay) return;
         if (target instanceof LivingEntity && ((LivingEntity) target).getNoDamageTicks() > 0) return;
@@ -99,7 +111,7 @@ public class AttackEntityManager extends Manager {
                 return;
             }
 
-            target.setVelocity(orientation.getDirection().setY(0).normalize().multiply(knockback).setY(knockback));
+            target.setVelocity(target.getLocation().subtract(entity.getLocation()).toVector().setY(0).normalize().multiply(knockback).setY(knockback));
             if (target instanceof LivingEntity) ((LivingEntity) target).setNoDamageTicks(nodamage);
 
             lastAttack = -entity.nextInt(randomDelay);
