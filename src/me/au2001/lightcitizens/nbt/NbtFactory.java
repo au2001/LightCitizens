@@ -15,10 +15,7 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.*;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
@@ -88,7 +85,8 @@ public class NbtFactory {
     
     // Loading/saving compounds
     private Method LOAD_COMPOUND;
-    private Method SAVE_COMPOUND;
+    private Method WRITE_COMPOUND;
+    private Constructor<?> NBT_READ_LIMITER;
     
     // Shared instance
     private static NbtFactory INSTANCE;
@@ -296,25 +294,28 @@ public class NbtFactory {
                 // Keep in mind that I do use hard-coded field names - but it's okay as long as we're dealing 
                 // with CraftBukkit or its derivatives. This does not work in MCPC+ however.
                 ClassLoader loader = NbtFactory.class.getClassLoader();
-                //String packageName = "org.bukkit.craftbukkit.v1_6_R2"; 
-                String packageName = Bukkit.getServer().getClass().getPackage().getName();
-                Class<?> offlinePlayer = loader.loadClass(packageName + ".CraftOfflinePlayer");
-                
+                String version = Bukkit.getServer().getClass().getPackage().getName().split("\\.")[3]; // v1_6_R2, v1_8_R3...
+                Class<?> offlinePlayer = loader.loadClass("org.bukkit.craftbukkit." + version + ".CraftOfflinePlayer");
+                Class<?> nbtReadLimiter = loader.loadClass("net.minecraft.server." + version + ".NBTReadLimiter");
+
                 // Prepare NBT
                 COMPOUND_CLASS = getMethod(0, Modifier.STATIC, offlinePlayer, "getData").getReturnType();
                 BASE_CLASS = COMPOUND_CLASS.getSuperclass();
                 NBT_GET_TYPE = getMethod(0, Modifier.STATIC, BASE_CLASS, "getTypeId");
-                NBT_CREATE_TAG = getMethod(Modifier.STATIC, 0, BASE_CLASS, "createTag", byte.class); // TODO: String.class
-                
+                NBT_CREATE_TAG = getMethod(Modifier.STATIC, 0, BASE_CLASS, "createTag", byte.class);
+
                 // Prepare CraftItemStack
-                CRAFT_STACK = loader.loadClass(packageName + ".inventory.CraftItemStack");
+                CRAFT_STACK = loader.loadClass("org.bukkit.craftbukkit." + version + ".inventory.CraftItemStack");
                 CRAFT_HANDLE = getField(null, CRAFT_STACK, "handle");
                 STACK_TAG = getField(null, CRAFT_HANDLE.getType(), "tag");
                 
                 // Loading/saving
-                LOAD_COMPOUND = getMethod(Modifier.STATIC, 0, BASE_CLASS, null, DataInput.class); // TODO: Renamed to "load" with new arguments `int` and `NBTReadLimiter`
-                SAVE_COMPOUND = getMethod(Modifier.STATIC, 0, BASE_CLASS, null, BASE_CLASS, DataOutput.class); // TODO: Renamed to "write"
-                
+                try {
+                    NBT_READ_LIMITER = nbtReadLimiter.getConstructor(long.class);
+                } catch (NoSuchMethodException e) {}
+                LOAD_COMPOUND = getMethod(0, 0, BASE_CLASS, "load", DataInput.class, int.class, nbtReadLimiter);
+                WRITE_COMPOUND = getMethod(0, 0, BASE_CLASS, "write", DataOutput.class);
+
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException("Unable to find offline player.", e);
             }
@@ -408,8 +409,13 @@ public class NbtFactory {
             data = new DataInputStream(new BufferedInputStream(
                 option == StreamOptions.GZIP_COMPRESSION ? new GZIPInputStream(input) : input
             ));
-            
-            return fromCompound(invokeMethod(get().LOAD_COMPOUND, null, data));
+
+            Object tag = get().createNbtTag(NbtType.TAG_COMPOUND, "", null);
+            try {
+                Object limiter = get().NBT_READ_LIMITER.newInstance(2097152L); // 2097152 = max allocated size (2M)
+                invokeMethod(get().LOAD_COMPOUND, tag, data, 512, limiter); // 512 = complexity (depth)
+            } catch (IllegalAccessException | InstantiationException | InvocationTargetException e) {}
+            return fromCompound(tag);
         } finally {
             if (data != null)
                 Closeables.closeQuietly(data);
@@ -437,7 +443,7 @@ public class NbtFactory {
                 option == StreamOptions.GZIP_COMPRESSION ? new GZIPOutputStream(output) : output
             );
             
-            invokeMethod(get().SAVE_COMPOUND, null, source.getHandle(), data);
+            invokeMethod(get().WRITE_COMPOUND, source.getHandle(), data);
         } finally {
             if (data != null) {
                 try {
@@ -595,7 +601,7 @@ public class NbtFactory {
      * @return The created tag.
      */
     private Object createNbtTag(NbtType type, String name, Object value) {
-        Object tag = invokeMethod(NBT_CREATE_TAG, null, (byte)type.id); // TODO: name
+        Object tag = invokeMethod(NBT_CREATE_TAG, null, (byte)type.id);
 
         if (value != null) {
             setFieldValue(getDataField(type, tag), tag, value);

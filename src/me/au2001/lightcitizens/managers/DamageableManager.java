@@ -12,6 +12,7 @@ import me.au2001.lightcitizens.nbt.NbtFactory.NbtList;
 import me.au2001.lightcitizens.packets.PacketPlayOutAnimation;
 import me.au2001.lightcitizens.packets.PacketPlayOutNamedSoundEffect;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -94,7 +95,8 @@ public class DamageableManager extends Manager {
 
     private static float getItemDamage(ItemStack item) {
         double damage = 2.0;
-	    if (item == null) return (float) Math.max(Math.min(damage, 0), 2048);
+	    if (item == null || item.getType().equals(Material.AIR))
+	        return (float) Math.min(Math.max(damage, 0), 2048);
 
         NbtCompound nbtCompound = NbtFactory.fromItemTag(NbtFactory.getCraftItemStack(item));
         NbtList attributeList = nbtCompound.getList("Attributes", false);
@@ -136,7 +138,7 @@ public class DamageableManager extends Manager {
             damage *= 1 + attribute.getAmount();
         }
 
-        return (float) Math.max(Math.min(damage, 0), 2048);
+        return (float) Math.min(Math.max(damage, 0), 2048);
     }
 
     private static double getItemKnockback(ItemStack item) {
