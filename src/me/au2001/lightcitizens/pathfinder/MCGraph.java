@@ -168,8 +168,8 @@ public class MCGraph extends Graph {
     }
 
     @SuppressWarnings("deprecation")
-    private double getUpperHeight(Block block, BlockFace side, int maxHeight) {
-        if (block == null || block.getY() > world.getMaxHeight() || block.getY() < 0) return Double.POSITIVE_INFINITY;
+    public static double getUpperHeight(Block block, BlockFace side, int maxHeight) {
+        if (block == null || block.getY() > block.getWorld().getMaxHeight() || block.getY() < 0) return Double.POSITIVE_INFINITY;
         if (side == null) side = BlockFace.SELF;
 
         double y = block.getY();
@@ -633,8 +633,8 @@ public class MCGraph extends Graph {
         }
     }
 
-    private double getLowerHeight(Block block, BlockFace side, int maxHeight) {
-        if (block == null || block.getY() > world.getMaxHeight() || block.getY() < 0) return Double.NEGATIVE_INFINITY;
+    public static double getLowerHeight(Block block, BlockFace side, int maxHeight) {
+        if (block == null || block.getY() > block.getWorld().getMaxHeight() || block.getY() < 0) return Double.NEGATIVE_INFINITY;
         if (side == null) side = BlockFace.SELF;
         double y = block.getY();
 
