@@ -62,7 +62,7 @@ public class LightCitizens extends JavaPlugin {
 
 		packetListener = new PacketListener() {
 
-			public void onPacketInAsync(Player sender, Channel channel, Packet packet) {
+			public void onPacketInAsync(final Player sender, Channel channel, final Packet packet) {
 				if (USE_ENTITY.isInstance(packet.toPacket())) {
 					packetsIn.add(new Entry<Packet, Player>() {
 						public Packet getKey() {

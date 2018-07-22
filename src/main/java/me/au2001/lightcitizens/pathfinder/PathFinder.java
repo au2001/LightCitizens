@@ -87,7 +87,7 @@ public class PathFinder {
         findAsynchronously(completion, 0.0);
     }
 
-    public void findAsynchronously(Runnable completion, double distance) {
+    public void findAsynchronously(final Runnable completion, final double distance) {
         cancelFind();
         thread = new Thread(new Runnable() {
             public void run() {

@@ -11,7 +11,8 @@ import org.bukkit.util.Vector;
 public class WalkTowardsEntityManager extends Manager {
 
 	private final static double DECELERATION_RATE = 0.02D;
-	private final static double GRAVITY_CONSTANT = 0.08D;
+	private final static double GRAVITY_CONSTANT = 0.25D;
+	private final static double MAX_GRAVITY = 3.0D;
 	private final static double SPEED_MODIFIER = 0.1D;
 	private final static double GRAVITY_MODIFIER = 0.3D;
 	private final static double HEIGHT = 1.85D;
@@ -45,17 +46,41 @@ public class WalkTowardsEntityManager extends Manager {
 		Vector direction = target.clone().subtract(location).toVector().setY(0).normalize();
 
 		if (!arrived) {
+			boolean blocked = false;
 			location.add(direction.clone().multiply(speed * SPEED_MODIFIER));
 			if (!isValidLocation(location)) { // Blocked by a wall
+				double upperHeight = MCGraph.getUpperHeight(location.getBlock(), null, 2);
+				if (upperHeight <= location.getY() + 0.5) {
+					// Step up
+					location.setY(upperHeight);
+				} else {
+					location.subtract(direction.clone().multiply(speed * SPEED_MODIFIER));
+					blocked = true;
+				}
+			} else if (MCGraph.getUpperHeight(location.getBlock(), null, 4) < location.getY() - 3) { // Going to fall
 				location.subtract(direction.clone().multiply(speed * SPEED_MODIFIER));
-				// TODO: Find another way around
+				blocked = true;
+			}
 
-				this.target.sendMessage("U: " + MCGraph.getUpperHeight(location.getBlock(), null, 1) + " <= " + (location.getY() + 0.2));
-				this.target.sendMessage("L: " + MCGraph.getLowerHeight(location.clone().add(0, HEIGHT, 0).getBlock(), null, 1) + " >= " + (location.getY() + HEIGHT - 0.2));
+			if (blocked) {
+				double step = Math.PI / 4;
+				for (int i = 1; i < 2 * Math.PI / step; i++) {
+					double angle = step * (i % 2 == 0? i / 2 : (i - 1) / 2);
+					double cos = Math.cos(angle), sin = Math.sin(angle);
+					double x = direction.getX(), z = direction.getZ();
+					Vector rotated = new Vector(x * cos - z * sin, 0, x * sin + z * cos).normalize();
+					Location newLocation = location.clone().add(rotated.clone().multiply(speed * SPEED_MODIFIER));
+					if (isValidLocation(newLocation)) {
+						direction = rotated;
+						location = newLocation;
+						break;
+					}
+				}
 			}
 		}
 
 		velocity = (velocity - GRAVITY_CONSTANT) * (1 - DECELERATION_RATE); // Apply gravity and deceleration
+		if (velocity < -MAX_GRAVITY) velocity = -MAX_GRAVITY;
 
 		boolean onground = false;
 		location.add(0, velocity * GRAVITY_MODIFIER, 0);
@@ -63,7 +88,7 @@ public class WalkTowardsEntityManager extends Manager {
 			if (velocity <= 0) {
 				location.setY(MCGraph.getUpperHeight(location.getBlock(), null, 2));
 				onground = true;
-			} else location.setY(MCGraph.getLowerHeight(location.getBlock(), null, 2));
+			} else location.setY(MCGraph.getLowerHeight(location.clone().add(0, 2, 0).getBlock(), null, 2) - HEIGHT);
 			velocity = 0;
 		}
 
@@ -72,7 +97,7 @@ public class WalkTowardsEntityManager extends Manager {
 
 			if (onground && !location.clone().add(direction).add(0, 1, 0).getBlock().getType().isSolid()) {
 				// Jump
-				double newVelocity = 1;
+				double newVelocity = 0.6;
 				Location newLocation = location.clone();
 				newLocation.subtract(0, velocity * GRAVITY_MODIFIER, 0);
 				newLocation.add(0, newVelocity * GRAVITY_MODIFIER, 0);
@@ -88,9 +113,9 @@ public class WalkTowardsEntityManager extends Manager {
 	}
 
 	private boolean isValidLocation(Location location) {
-		if (MCGraph.getUpperHeight(location.getBlock(), null, 1) > location.getY() + 0.2) // Bypass carpets and stuff
+		if (MCGraph.getUpperHeight(location.getBlock(), null, 1) > location.getY())
 			return false;
-		if (MCGraph.getLowerHeight(location.clone().add(0, HEIGHT, 0).getBlock(), null, 1) < location.getY() + HEIGHT - 0.2)
+		if (MCGraph.getLowerHeight(location.clone().add(0, HEIGHT, 0).getBlock(), null, 1) < location.getY() + HEIGHT)
 			return false;
 
 		if (Math.floor(location.getY() + HEIGHT) >= location.getBlockY() + 2) {

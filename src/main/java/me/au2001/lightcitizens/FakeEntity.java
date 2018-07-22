@@ -581,7 +581,7 @@ public class FakeEntity extends Random implements Listener {
 	}
 
     @EventHandler
-    public void onPlayerRespawn(PlayerRespawnEvent event) {
+    public void onPlayerRespawn(final PlayerRespawnEvent event) {
         if (!observers.contains(event.getPlayer())) return;
 
         new BukkitRunnable() {

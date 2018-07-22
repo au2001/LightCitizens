@@ -19,7 +19,7 @@ public class BroadcastEntityManager extends Manager {
 	}
 
 	@EventHandler
-	public void onPlayerJoin(PlayerJoinEvent event) {
+	public void onPlayerJoin(final PlayerJoinEvent event) {
 		new BukkitRunnable() {
 			public void run() {
 				// Delay the NPC loading so that the client has time to render the skin after the entity has spawned.
