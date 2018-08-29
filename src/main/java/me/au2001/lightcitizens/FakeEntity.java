@@ -13,7 +13,6 @@ import me.au2001.lightcitizens.tinyprotocol.Reflection;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -29,6 +28,7 @@ import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.BlockIterator;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Constructor;
@@ -144,6 +144,7 @@ public class FakeEntity extends Random implements Listener {
 		entities.add(this);
 	}
 
+	@SuppressWarnings({"unchecked", "deprecated"})
 	public void update() {
 		if (changed) {
 			PropertyMap properties = profile.getProperties();
@@ -175,7 +176,7 @@ public class FakeEntity extends Random implements Listener {
 		}
 
 		List<Player> players = new ArrayList<Player>();
-		for (Entry<Player, Long> entry : tablisttime.entrySet())
+		for (Entry<Player, Long> entry : new HashSet<Entry<Player, Long>>(tablisttime.entrySet()))
 			if (entry.getValue() >= LightCitizens.getTickTime()) players.add(entry.getKey());
 		if (!players.isEmpty()) {
 			try {
@@ -679,30 +680,45 @@ public class FakeEntity extends Random implements Listener {
 		if (location == null || !this.serverLocation.getWorld().equals(location.getWorld())) return false;
 		location = location.clone();
 
-		Location current = this.serverLocation.clone().add(0, 1.62, 0); // Eye height (1.54 while sneaking)
-		Vector direction = location.toVector().subtract(current.toVector());
-		Block target = location.getBlock(), block = current.getBlock();
+		Vector start = this.serverLocation.toVector();
+		Vector direction = location.toVector().subtract(start);
+		double yOffset = 1.62; // Eye height (1.54 while sneaking)
+		int distance = (int) Math.ceil(start.distance(location.toVector()));
 
-		double distance = current.distance(location);
-		if (distance <= 0) return true;
-
-		double precision;
-		if (distance > 1000) precision = 5.0;
-		else if (distance > 500) precision = 2.0;
-		else if (distance > 100) precision = 1.0;
-		else if (distance > 50) precision = 0.2;
-		else if (distance > 10) precision = 0.1;
-		else if (distance > 1) precision = 0.02;
-		else precision = 0.002;
-
-		direction = direction.multiply(precision / distance);
-		for (int i = 0; i < distance / precision; i++) {
-			if (block.getType().isOccluding()) return false;
-			location.add(direction);
-			block = location.getBlock();
-		}
+		BlockIterator blockIterator = new BlockIterator(location.getWorld(), start, direction, yOffset, distance);
+		while (blockIterator.hasNext()) if (blockIterator.next().getType().isOccluding()) return false;
 
 		return true;
 	}
+
+//	public boolean hasLineOfSight(Location location) {
+//		if (location == null || !this.serverLocation.getWorld().equals(location.getWorld())) return false;
+//		location = location.clone();
+//
+//		Location current = this.serverLocation.clone().add(0, 1.62, 0); // Eye height (1.54 while sneaking)
+//		Vector direction = location.toVector().subtract(current.toVector());
+//		Block target = location.getBlock(), block = current.getBlock();
+//
+//		double distance = current.distance(location);
+//		if (distance <= 0) return true;
+//
+//		double precision;
+//		if (distance > 1000) precision = 5.0;
+//		else if (distance > 500) precision = 2.0;
+//		else if (distance > 100) precision = 1.0;
+//		else if (distance > 50) precision = 0.2;
+//		else if (distance > 10) precision = 0.1;
+//		else if (distance > 1) precision = 0.02;
+//		else precision = 0.002;
+//
+//		direction = direction.multiply(precision / distance);
+//		for (int i = 0; i < distance / precision; i++) {
+//			if (block.getType().isOccluding()) return false;
+//			location.add(direction);
+//			block = location.getBlock();
+//		}
+//
+//		return true;
+//	}
 
 }

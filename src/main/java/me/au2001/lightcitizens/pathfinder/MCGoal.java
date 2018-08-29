@@ -1,15 +1,17 @@
 package me.au2001.lightcitizens.pathfinder;
 
+import me.au2001.lightcitizens.pathfinder.Node.Node3D;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
 
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 
-public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
+public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step>, Closeable {
 
     private List<MCGoal.Step> steps = null;
     private int currentIndex = -1;
@@ -82,9 +84,12 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
         this.maxFall = maxFall;
         this.thread = Thread.currentThread();
 
-        Location center = new Location(world, (start.getX() + goal.getX())/2, (start.getY() + goal.getY())/2, (start.getZ() + goal.getZ())/2);
-        graph = new MCGraph(center, (int) (start.distanceSquared(goal) * 1.5 * 1.5), height, maxJump, maxFall);
-        pathFinder = new PathFinder(graph, graph.getNode(start), graph.getNode(goal));
+        Node3D startNode = new Node3D(start.getBlockX(), start.getBlockY(), start.getBlockZ());
+        Node3D goalNode = new Node3D(goal.getBlockX(), goal.getBlockY(), goal.getBlockZ());
+
+        Location center = new Location(world, (startNode.x + goalNode.x)/2, (startNode.y + goalNode.y)/2, (startNode.z + goalNode.z)/2);
+        graph = new MCGraph(center, startNode.distance(goalNode) * 1.5, height, maxJump, maxFall);
+        pathFinder = new PathFinder(graph, startNode, goalNode);
 
         calculate();
     }
@@ -102,7 +107,7 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
                         Node to = from;
                         from = path.poll();
                         if (from instanceof Node.Node3D && to instanceof Node.Node3D)
-                            tmp.add(new MCGoal.Step((Node.Node3D) from, (Node.Node3D) to, precision));
+                            tmp.add(new MCGoal.Step(world, (Node.Node3D) from, (Node.Node3D) to, precision));
                     }
                 }
 
@@ -112,6 +117,10 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
                 }
             }
         }, distance);
+    }
+
+    public void close() {
+        graph.close();
     }
 
     public double getHeight() {
@@ -214,20 +223,22 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
         return heights;
     }
 
-    public class Step implements Iterable<Location>, Iterator<Location> {
+    public static class Step implements Iterable<Location>, Iterator<Location> {
 
         private List<Location> locations = new ArrayList<Location>();
         private int currentIndex = -1;
+        private World world;
         private Node.Node3D from;
         private Node.Node3D to;
         private int precision;
         private Vector direction;
 
-        public Step(Node.Node3D from, Node.Node3D to) {
-            this(from, to, 0);
+        public Step(World world, Node.Node3D from, Node.Node3D to) {
+            this(world, from, to, 0);
         }
 
-        public Step(Node.Node3D from, Node.Node3D to, int precision) {
+        public Step(World world, Node.Node3D from, Node.Node3D to, int precision) {
+            this.world = world;
             this.from = from;
             this.to = to;
             this.precision = precision > 0? precision : 25;
@@ -238,7 +249,7 @@ public class MCGoal implements Iterable<MCGoal.Step>, Iterator<MCGoal.Step> {
 
         private void calculate() {
             Vector direction = this.direction.clone();
-            Location location = new Location(graph.getWorld(), from.x + 0.5, from.y, from.z + 0.5);
+            Location location = new Location(world, from.x + 0.5, from.y, from.z + 0.5);
 
             if (from.y != to.y && (from.x != to.x || from.z != to.z)) {
                 List<Double> heights = jump(from.y, to.y, 1.0 / (double) precision);

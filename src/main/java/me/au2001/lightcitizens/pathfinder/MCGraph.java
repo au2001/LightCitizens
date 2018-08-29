@@ -2,123 +2,70 @@ package me.au2001.lightcitizens.pathfinder;
 
 import me.au2001.lightcitizens.pathfinder.Node.Node3D;
 import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.block.Block;
+import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
 import org.bukkit.material.*;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.Map;
 
 public class MCGraph extends Graph {
 
-    private World world;
-    private Location center;
-    private int distanceSquared;
+    private MCSnapshot snapshot;
     private double height;
     private double maxJump;
     private double maxFall;
 
-    public MCGraph(World world) {
-        this(world, 2, 1, 3);
+    public MCGraph(Location center, double distance) {
+        this(center, distance, 2, 1, 3);
     }
 
-    public MCGraph(World world, double height, double maxJump, double maxFall) {
-        this(world.getSpawnLocation(), -1, height, maxJump, maxFall);
+    public MCGraph(Location center, double distance, double height, double maxJump, double maxFall) {
+        this(new MCSnapshot(center, distance), height, maxJump, maxFall);
     }
 
-    public MCGraph(Location center, int distanceSquared) {
-        this(center, distanceSquared, 2, 1, 3);
+    public MCGraph(MCSnapshot snapshot) {
+        this(snapshot, 2, 1, 3);
     }
 
-    public MCGraph(Location center, int distanceSquared, double height, double maxJump, double maxFall) {
-        this.world = center.getWorld();
-        this.center = center;
-        this.distanceSquared = distanceSquared;
+    public MCGraph(MCSnapshot snapshot, double height, double maxJump, double maxFall) {
+        this.snapshot = snapshot;
         this.height = height;
         this.maxJump = maxJump;
         this.maxFall = maxFall;
     }
 
-    public World getWorld() {
-        return world;
-    }
+	public void close() {
+		snapshot.close();
+	}
 
-    public Node3D getNode(Location location) {
-        return getNode(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-    }
-
-    public Node3D getNode(Block block) {
-        return getNode(block.getX(), block.getY(), block.getZ());
+    public MCSnapshot getSnapshot() {
+        return snapshot;
     }
 
     public Node3D getNode(int x, int y, int z) {
         return new Node3D(x, y, z);
     }
 
-    public Block getBlock(Node3D node) {
-        int x = (int) Math.floor(node.x);
-        int y = (int) Math.floor(node.y);
-        int z = (int) Math.floor(node.z);
-        if (!world.isChunkLoaded(Math.floorDiv(x, 16), Math.floorDiv(z, 16)))
-            return null;
-
-        return world.getBlockAt(x, y, z);
-//        if (Bukkit.isPrimaryThread()) return world.getBlockAt(x, y, z);
-//
-//        AtomicReference<Block> block = new AtomicReference<Block>(null);
-//        AtomicBoolean available = new AtomicBoolean(false);
-//        new BukkitRunnable() {
-//            public void run() {
-//                block.set(world.getBlockAt(x, y, z));
-//                available.set(true);
-//            }
-//        }.runTask(LightCitizens.getInstance());
-//
-//        while (!available.get()) {
-//            try {
-//                Thread.sleep(1);
-//            } catch (InterruptedException e) {}
-//        }
-//        return block.get();
-    }
-
-    public Location getLocation(Node3D node) {
-        return new Location(world, node.x + 0.5, node.y, node.z + 0.5);
-    }
-
     public boolean isInBound(Node3D node) {
-        if (distanceSquared < 0) return true;
-        int distX = (int) Math.pow(node.x - center.getBlockX(), 2);
-        int distZ = (int) Math.pow(node.z - center.getBlockZ(), 2);
-        return distX + distZ <= distanceSquared && getLocation(node).getChunk().isLoaded();
-    }
-
-    public boolean isInBound(Block block) {
-        if (block == null) return false;
-        if (distanceSquared < 0) return true;
-        int distX = (int) Math.pow(block.getX() - center.getBlockX(), 2);
-        int distZ = (int) Math.pow(block.getZ() - center.getBlockZ(), 2);
-        return distX + distZ <= distanceSquared && block.getChunk().isLoaded();
+        return snapshot.isInBound(node);
     }
 
     public boolean canMove(Node from, Node to) {
         if (!(from instanceof Node3D && to instanceof Node3D)) return false;
-        return canMove(getBlock((Node3D) from), getBlock((Node3D) to));
-    }
-
-    public boolean canMove(Block from, Block to) {
         if (from == null || to == null) return false;
-        if (!isInBound(to)) return false;
+        if (!isInBound((Node3D) to)) return false;
 
         int depth = (int) Math.ceil(Math.max(Math.max(maxJump, maxFall), 1));
+        BlockFace face = getFace((Node3D) from, (Node3D) to);
 
-        double upperFrom = getUpperHeight(from, from.getFace(to), depth);
-        if (upperFrom < from.getY()) return to.equals(from.getRelative(BlockFace.DOWN));
+        double upperFrom = getUpperHeight(snapshot, (Node3D) from, face, depth);
+        if (upperFrom < ((Node3D) from).y) return to.equals(getRelative((Node3D) from, BlockFace.DOWN));
 
-        double upperTo = getUpperHeight(to, to.getFace(from), depth);
-        double lowerFrom = getLowerHeight(from, from.getFace(to), (int) Math.ceil(height + maxJump));
-        double lowerTo = getLowerHeight(to, to.getFace(from), (int) Math.ceil(height + maxJump));
+        double upperTo = getUpperHeight(snapshot, (Node3D) to, face.getOppositeFace(), depth);
+        double lowerFrom = getLowerHeight(snapshot, (Node3D) from, face, (int) Math.ceil(height + maxJump));
+        double lowerTo = getLowerHeight(snapshot, (Node3D) to, face.getOppositeFace(), (int) Math.ceil(height + maxJump));
 
         if (upperFrom < 0 || lowerFrom < 0 || upperTo < 0 || lowerTo < 0) return false; // An error occured
 
@@ -134,32 +81,20 @@ public class MCGraph extends Graph {
         Map<Node, Double> neighbors = node.getNeighbors();
         if (!(node instanceof Node3D)) return neighbors;
 
-        Block from = getBlock((Node3D) node);
-        if (from == null) return neighbors;
-//        neighbors.put(new Node3D(((Node3D) node).x - 1, ((Node3D) node).y, ((Node3D) node).z), 1.0);
-//        neighbors.put(new Node3D(((Node3D) node).x + 1, ((Node3D) node).y, ((Node3D) node).z), 1.0);
-//        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y, ((Node3D) node).z - 1), 1.0);
-//        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y, ((Node3D) node).z + 1), 1.0);
-//        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y - 1, ((Node3D) node).z), 1.0);
-//        neighbors.put(new Node3D(((Node3D) node).x, ((Node3D) node).y + 1, ((Node3D) node).z), 1.0);
-
         for (Node neighbor : new ArrayList<Node>(neighbors.keySet())) {
-            Block block = getBlock((Node3D) neighbor);
-            if (block == null) continue;
-
-            if (!isInBound(block)) {
+            if (!isInBound((Node3D) neighbor)) {
                 neighbors.remove(neighbor);
                 continue;
             }
 
-            if (!canMove(from, block)) {
+            if (!canMove(node, neighbor)) {
                 neighbors.remove(neighbor);
 
                 for (int y = (int) -Math.ceil(maxFall); y <= maxJump; y++) {
                     if (y == 0) continue;
 
-                    Block other = block.getRelative(0, y, 0);
-                    if (canMove(from, other)) neighbors.put(getNode(other), y + 1.0);
+                    Node3D other = getRelative((Node3D) neighbor, BlockFace.UP, y);
+                    if (canMove(node, other)) neighbors.put(other, y + 1.0);
                 }
             }
         }
@@ -167,13 +102,42 @@ public class MCGraph extends Graph {
         return neighbors;
     }
 
+    private static BlockFace getFace(Node3D from, Node3D to) {
+        Vector vector = new Vector(Math.floor(to.x) - Math.floor(from.x), Math.floor(to.y) - Math.floor(from.y), Math.floor(to.z) - Math.floor(from.z));
+        if (vector.lengthSquared() == 0) return BlockFace.SELF;
+        vector.normalize();
+        double minDist = Double.POSITIVE_INFINITY;
+        BlockFace minFace = BlockFace.SELF;
+        for (BlockFace face : BlockFace.values()) {
+            Vector faceVector = new Vector(face.getModX(), face.getModY(), face.getModZ());
+            double dist = faceVector.distanceSquared(vector);
+            if (dist < minDist) {
+                minDist = dist;
+                minFace = face;
+            }
+        }
+        return minFace;
+    }
+
+    private static Node3D getRelative(Node3D from, BlockFace face) {
+        return getRelative(from, face, 1);
+    }
+
+    private static Node3D getRelative(Node3D from, BlockFace face, int distance) {
+        return getRelative(from, face.getModX() * distance, face.getModY() * distance, face.getModZ() * distance);
+    }
+
+    private static Node3D getRelative(Node3D from, int x, int y, int z) {
+        return new Node3D(from.x + x, from.y + y, from.z + z);
+    }
+
     @SuppressWarnings("deprecation")
-    public static double getUpperHeight(Block block, BlockFace side, int maxHeight) {
-        if (block == null || block.getY() > block.getWorld().getMaxHeight() || block.getY() < 0) return Double.POSITIVE_INFINITY;
+    public static double getUpperHeight(MCSnapshot snapshot, Node3D node, BlockFace side, int maxHeight) {
+        if (!snapshot.isInBound(node)) return Double.POSITIVE_INFINITY;
         if (side == null) side = BlockFace.SELF;
 
-        double y = block.getY();
-        switch (block.getType()) {
+        MaterialData data = snapshot.get(node);
+        switch (data != null? data.getItemType() : Material.AIR) {
             // Full
             case STONE:
             case GRASS:
@@ -264,7 +228,7 @@ public class MCGraph extends Graph {
             case PACKED_ICE:
             case DOUBLE_STONE_SLAB2:
             case RED_SANDSTONE:
-                return y + 1;
+                return node.y + 1;
 
             // Transparent
             case AIR:
@@ -314,7 +278,7 @@ public class MCGraph extends Graph {
             case DOUBLE_PLANT:
             case STANDING_BANNER:
             case WALL_BANNER:
-                return maxHeight >= 1? getUpperHeight(block.getRelative(BlockFace.DOWN), side, maxHeight - 1) : y;
+                return maxHeight >= 1? getUpperHeight(snapshot, getRelative(node, BlockFace.DOWN), side, maxHeight - 1) : node.y;
 
             // Fences/Walls
             case FENCE:
@@ -326,7 +290,7 @@ public class MCGraph extends Graph {
             case JUNGLE_FENCE:
             case DARK_OAK_FENCE:
             case ACACIA_FENCE:
-                return y + 1.5;
+                return node.y + 1.5;
 
             // Gates
             case FENCE_GATE:
@@ -335,12 +299,12 @@ public class MCGraph extends Graph {
             case JUNGLE_FENCE_GATE:
             case DARK_OAK_FENCE_GATE:
             case ACACIA_FENCE_GATE:
-                if (block.getState().getData() instanceof Gate) {
-                    Gate gate = (Gate) block.getState().getData();
+                if (data instanceof Gate) {
+                    Gate gate = (Gate) data;
                     if (gate.isOpen())
-                        return maxHeight >= 1? getUpperHeight(block.getRelative(BlockFace.DOWN), side, maxHeight - 1) : y;
+                        return maxHeight >= 1? getUpperHeight(snapshot, getRelative(node, BlockFace.DOWN), side, maxHeight - 1) : node.y;
                 }
-                return y + 1.5;
+                return node.y + 1.5;
 
             // Doors
             case WOODEN_DOOR:
@@ -351,21 +315,21 @@ public class MCGraph extends Graph {
             case ACACIA_DOOR:
             case DARK_OAK_DOOR:
                 // TODO
-                if (block.getState().getData() instanceof Door) {
-                    Door door = (Door) block.getState().getData();
-                    if (door.isTopHalf()) return y + 2;
+                if (data instanceof Door) {
+                    Door door = (Door) data;
+                    if (door.isTopHalf()) return node.y + 2;
                 }
-                return y + 1;
+                return node.y + 1;
 
             // Slabs
             case STEP:
             case WOOD_STEP:
             case STONE_SLAB2:
-                if (block.getState().getData() instanceof Step) {
-                    Step step = (Step) block.getState().getData();
-                    if (step.isInverted()) return y + 1;
+                if (data instanceof Step) {
+                    Step step = (Step) data;
+                    if (step.isInverted()) return node.y + 1;
                 }
-                return y + 0.5;
+                return node.y + 0.5;
 
             // Stairs
             case WOOD_STAIRS:
@@ -381,64 +345,64 @@ public class MCGraph extends Graph {
             case ACACIA_STAIRS:
             case DARK_OAK_STAIRS:
             case RED_SANDSTONE_STAIRS:
-                if (block.getState().getData() instanceof Stairs) {
-                    Stairs stairs = (Stairs) block.getState().getData();
-                    if (!stairs.isInverted() && stairs.getDescendingDirection().equals(side)) return y + 0.5;
+                if (data instanceof Stairs) {
+                    Stairs stairs = (Stairs) data;
+                    if (!stairs.isInverted() && stairs.getDescendingDirection().equals(side)) return node.y + 0.5;
                 }
-                return y + 1;
+                return node.y + 1;
 
             // Trapdoors
             case TRAP_DOOR:
             case IRON_TRAPDOOR:
-                if (block.getState().getData() instanceof TrapDoor) {
-                    TrapDoor trapdoor = (TrapDoor) block.getState().getData();
-                    if (trapdoor.isInverted() || trapdoor.isOpen()) return y + 1;
+                if (data instanceof TrapDoor) {
+                    TrapDoor trapdoor = (TrapDoor) data;
+                    if (trapdoor.isInverted() || trapdoor.isOpen()) return node.y + 1;
                 }
-                return y + 0.1875;
+                return node.y + 0.1875;
 
             // Other
             case BED_BLOCK:
-                return y + 0.5625;
+                return node.y + 0.5625;
             case CHEST:
             case ENDER_CHEST:
             case TRAPPED_CHEST:
-                return y + 0.875;
+                return node.y + 0.875;
             case SNOW:
-                return y + block.getState().getRawData() * 0.125;
+                return node.y + data.getData() * 0.125;
             case SOIL:
-                return y + 0.9375;
+                return node.y + 0.9375;
             case SOUL_SAND:
-                return y + 0.875;
+                return node.y + 0.875;
             case CAKE_BLOCK:
-                return y + 0.5;
+                return node.y + 0.5;
             case DIODE_BLOCK_OFF:
             case DIODE_BLOCK_ON:
             case REDSTONE_COMPARATOR_OFF:
             case REDSTONE_COMPARATOR_ON:
-                return y + 0.125;
+                return node.y + 0.125;
             case WATER_LILY:
-                return y + 0.09375;
+                return node.y + 0.09375;
             case ENCHANTMENT_TABLE:
-                return y + 0.75;
+                return node.y + 0.75;
             case ENDER_PORTAL_FRAME:
-                return y + 0.8125;
+                return node.y + 0.8125;
             case BREWING_STAND:
-                return y + 0.875;
+                return node.y + 0.875;
             case COCOA:
-                return y + 0.75;
+                return node.y + 0.75;
             case FLOWER_POT:
-                return y + 0.375;
+                return node.y + 0.375;
             case SKULL:
-                if (block.getState().getData() instanceof Skull) {
-                    Skull skull = (Skull) block.getState().getData();
-                    if (!skull.getFacing().equals(BlockFace.UP)) return y + 0.75;
+                if (data instanceof Skull) {
+                    Skull skull = (Skull) data;
+                    if (!skull.getFacing().equals(BlockFace.UP)) return node.y + 0.75;
                 }
-                return y + 0.5;
+                return node.y + 0.5;
             case DAYLIGHT_DETECTOR:
             case DAYLIGHT_DETECTOR_INVERTED:
-                return y + 0.375;
+                return node.y + 0.375;
             case CARPET:
-                return y + 0.0625;
+                return node.y + 0.0625;
 
             // Items
             case IRON_SPADE:
@@ -633,12 +597,12 @@ public class MCGraph extends Graph {
         }
     }
 
-    public static double getLowerHeight(Block block, BlockFace side, int maxHeight) {
-        if (block == null || block.getY() > block.getWorld().getMaxHeight() || block.getY() < 0) return Double.NEGATIVE_INFINITY;
+    public static double getLowerHeight(MCSnapshot snapshot, Node3D node, BlockFace side, int maxHeight) {
+        if (!snapshot.isInBound(node)) return Double.POSITIVE_INFINITY;
         if (side == null) side = BlockFace.SELF;
-        double y = block.getY();
 
-        switch (block.getType()) {
+        MaterialData data = snapshot.get(node);
+        switch (data != null? data.getItemType() : Material.AIR) {
             // Full
             case STONE:
             case GRASS:
@@ -729,7 +693,7 @@ public class MCGraph extends Graph {
             case PACKED_ICE:
             case DOUBLE_STONE_SLAB2:
             case RED_SANDSTONE:
-                return y;
+                return node.y;
 
             // Transparent
             case AIR:
@@ -779,7 +743,7 @@ public class MCGraph extends Graph {
             case DOUBLE_PLANT:
             case STANDING_BANNER:
             case WALL_BANNER:
-                return maxHeight >= 1? getLowerHeight(block.getRelative(BlockFace.UP), side, maxHeight - 1) : y + 1;
+                return maxHeight >= 1? getLowerHeight(snapshot, getRelative(node, BlockFace.UP), side, maxHeight - 1) : node.y + 1;
 
             // Fences/Walls
             case FENCE:
@@ -791,7 +755,7 @@ public class MCGraph extends Graph {
             case JUNGLE_FENCE:
             case DARK_OAK_FENCE:
             case ACACIA_FENCE:
-                return y;
+                return node.y;
 
             // Gates
             case FENCE_GATE:
@@ -800,12 +764,12 @@ public class MCGraph extends Graph {
             case JUNGLE_FENCE_GATE:
             case DARK_OAK_FENCE_GATE:
             case ACACIA_FENCE_GATE:
-                if (block.getState().getData() instanceof Gate) {
-                    Gate gate = (Gate) block.getState().getData();
+                if (data instanceof Gate) {
+                    Gate gate = (Gate) data;
                     if (gate.isOpen())
-                        return maxHeight >= 1? getLowerHeight(block.getRelative(BlockFace.UP), side, maxHeight - 1) : y + 1;
+                        return maxHeight >= 1? getLowerHeight(snapshot, getRelative(node, BlockFace.UP), side, maxHeight - 1) : node.y + 1;
                 }
-                return y;
+                return node.y;
 
             // Doors
             case WOODEN_DOOR:
@@ -815,8 +779,8 @@ public class MCGraph extends Graph {
             case JUNGLE_DOOR:
             case ACACIA_DOOR:
             case DARK_OAK_DOOR:
-                if (block.getState().getData() instanceof Door) {
-                    Door door = (Door) block.getState().getData();
+                if (data instanceof Door) {
+                    Door door = (Door) data;
                     BlockFace facing = door.getFacing();
                     if (door.isOpen()) {
                         switch (facing) {
@@ -837,21 +801,21 @@ public class MCGraph extends Graph {
                                 break;
                         }
                     }
-                    if (facing.equals(side)) return y;
+                    if (facing.equals(side)) return node.y;
                     if (!door.isTopHalf())
-                        return maxHeight >= 2? getLowerHeight(block.getRelative(BlockFace.UP, 2), side, maxHeight - 2) : y + 2;
+                        return maxHeight >= 2? getLowerHeight(snapshot, getRelative(node, BlockFace.UP, 2), side, maxHeight - 2) : node.y + 2;
                 }
-                return maxHeight >= 1? getLowerHeight(block.getRelative(BlockFace.UP), side, maxHeight - 1) : y + 1;
+                return maxHeight >= 1? getLowerHeight(snapshot, getRelative(node, BlockFace.UP), side, maxHeight - 1) : node.y + 1;
 
             // Slabs
             case STEP:
             case WOOD_STEP:
             case STONE_SLAB2:
-                if (block.getState().getData() instanceof Step) {
-                    Step step = (Step) block.getState().getData();
-                    if (step.isInverted()) return y + 0.5;
+                if (data instanceof Step) {
+                    Step step = (Step) data;
+                    if (step.isInverted()) return node.y + 0.5;
                 }
-                return y;
+                return node.y;
 
             // Stairs
             case WOOD_STAIRS:
@@ -867,75 +831,75 @@ public class MCGraph extends Graph {
             case ACACIA_STAIRS:
             case DARK_OAK_STAIRS:
             case RED_SANDSTONE_STAIRS:
-                if (block.getState().getData() instanceof Stairs) {
-                    Stairs stairs = (Stairs) block.getState().getData();
-                    if (stairs.isInverted() && stairs.getDescendingDirection().equals(side)) return y + 0.5;
+                if (data instanceof Stairs) {
+                    Stairs stairs = (Stairs) data;
+                    if (stairs.isInverted() && stairs.getDescendingDirection().equals(side)) return node.y + 0.5;
                 }
-                return y;
+                return node.y;
 
             // Trapdoors
             case TRAP_DOOR:
             case IRON_TRAPDOOR:
-                if (block.getState().getData() instanceof TrapDoor) {
-                    TrapDoor trapdoor = (TrapDoor) block.getState().getData();
+                if (data instanceof TrapDoor) {
+                    TrapDoor trapdoor = (TrapDoor) data;
                     if (trapdoor.isOpen()) {
-                        if (trapdoor.getAttachedFace().equals(side)) return y;
-                        return maxHeight >= 1? getLowerHeight(block.getRelative(BlockFace.UP), side, maxHeight - 1) : y + 1;
+                        if (trapdoor.getAttachedFace().equals(side)) return node.y;
+                        return maxHeight >= 1? getLowerHeight(snapshot, getRelative(node, BlockFace.UP), side, maxHeight - 1) : node.y + 1;
                     }
-                    if (trapdoor.isInverted()) return y + 0.8125;
+                    if (trapdoor.isInverted()) return node.y + 0.8125;
                 }
-                return y;
+                return node.y;
 
             // Other
             case BED_BLOCK:
-                return y;
+                return node.y;
             case CHEST:
             case ENDER_CHEST:
             case TRAPPED_CHEST:
-                return y;
+                return node.y;
             case SNOW:
-                return y;
+                return node.y;
             case SOIL:
-                return y;
+                return node.y;
             case SOUL_SAND:
-                return y;
+                return node.y;
             case CAKE_BLOCK:
-                return y;
+                return node.y;
             case DIODE_BLOCK_OFF:
             case DIODE_BLOCK_ON:
             case REDSTONE_COMPARATOR_OFF:
             case REDSTONE_COMPARATOR_ON:
-                return y;
+                return node.y;
             case WATER_LILY:
-                return y;
+                return node.y;
             case ENCHANTMENT_TABLE:
-                return y;
+                return node.y;
             case ENDER_PORTAL_FRAME:
-                return y;
+                return node.y;
             case BREWING_STAND:
-                return y;
+                return node.y;
             case COCOA:
-                if (block.getState().getData() instanceof CocoaPlant) {
-                    CocoaPlant cocoa = (CocoaPlant) block.getState().getData();
+                if (data instanceof CocoaPlant) {
+                    CocoaPlant cocoa = (CocoaPlant) data;
                     if (cocoa.getFacing().equals(side))
-                        return maxHeight >= 1? getLowerHeight(block.getRelative(BlockFace.UP), side, maxHeight - 1) : y + 1;
+                        return maxHeight >= 1? getLowerHeight(snapshot, getRelative(node, BlockFace.UP), side, maxHeight - 1) : node.y + 1;
                 }
-                return y + 0.25;
+                return node.y + 0.25;
             case FLOWER_POT:
-                return y;
+                return node.y;
             case SKULL:
-                if (block.getState().getData() instanceof Skull) {
-                    Skull skull = (Skull) block.getState().getData();
+                if (data instanceof Skull) {
+                    Skull skull = (Skull) data;
                     if (skull.getFacing().equals(side))
-                        return maxHeight >= 1? getLowerHeight(block.getRelative(BlockFace.UP), side, maxHeight - 1) : y + 1;
-                    if (!skull.getFacing().equals(BlockFace.UP)) return y + 0.25;
+                        return maxHeight >= 1? getLowerHeight(snapshot, getRelative(node, BlockFace.UP), side, maxHeight - 1) : node.y + 1;
+                    if (!skull.getFacing().equals(BlockFace.UP)) return node.y + 0.25;
                 }
-                return y;
+                return node.y;
             case DAYLIGHT_DETECTOR:
             case DAYLIGHT_DETECTOR_INVERTED:
-                return y;
+                return node.y;
             case CARPET:
-                return y;
+                return node.y;
 
             // Items
             case IRON_SPADE:

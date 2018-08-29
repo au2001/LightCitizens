@@ -2,10 +2,14 @@ package me.au2001.lightcitizens.managers;
 
 import me.au2001.lightcitizens.FakeEntity;
 import me.au2001.lightcitizens.pathfinder.MCGraph;
+import me.au2001.lightcitizens.pathfinder.MCSnapshot;
+import me.au2001.lightcitizens.pathfinder.MCSnapshot.MCLiveSnapshot;
+import me.au2001.lightcitizens.pathfinder.Node.Node3D;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.material.MaterialData;
 import org.bukkit.util.Vector;
 
 public class WalkTowardsEntityManager extends Manager {
@@ -32,14 +36,17 @@ public class WalkTowardsEntityManager extends Manager {
 
 	public void syncTick() {
 		if (target == null) return;
-		Location target = this.target.getLocation();
-		if (target.getWorld() == null || !target.getWorld().equals(entity.getLocation().getWorld())) {
-			walkTowardsEntity(null);
+		if (target.isDead() || !target.isValid() || target.getWorld() == null || !target.getWorld().equals(entity.getLocation().getWorld())) {
+			target = null;
 			return;
 		}
 
+		Location target = this.target.getLocation();
 		Location location = entity.getLocation();
-//		if (!isValidLocation(location)) return; // Blocked in a block
+		Node3D node = new Node3D(location.getX(), location.getY(), location.getZ());
+//		if (!isValidLocation(snapshot, location)) return; // Blocked in a block
+
+		MCSnapshot snapshot = new MCLiveSnapshot(location.getWorld());
 
 		boolean arrived = Math.pow(location.getY() - target.getY(), 2) + Math.pow(location.getZ() - target.getZ(), 2) <= distance * distance; // Close enough
 
@@ -48,17 +55,21 @@ public class WalkTowardsEntityManager extends Manager {
 		if (!arrived) {
 			boolean blocked = false;
 			location.add(direction.clone().multiply(speed * SPEED_MODIFIER));
-			if (!isValidLocation(location)) { // Blocked by a wall
-				double upperHeight = MCGraph.getUpperHeight(location.getBlock(), null, 2);
+			node = new Node3D(location.getX(), location.getY(), location.getZ());
+			if (!isValidLocation(snapshot, node)) { // Blocked by a wall
+				double upperHeight = MCGraph.getUpperHeight(snapshot, node, null, 2);
 				if (upperHeight <= location.getY() + 0.5) {
 					// Step up
 					location.setY(upperHeight);
+					node.y = location.getY();
 				} else {
 					location.subtract(direction.clone().multiply(speed * SPEED_MODIFIER));
+					node = new Node3D(location.getX(), location.getY(), location.getZ());
 					blocked = true;
 				}
-			} else if (MCGraph.getUpperHeight(location.getBlock(), null, 4) < location.getY() - 3) { // Going to fall
+			} else if (MCGraph.getUpperHeight(snapshot, node, null, 4) < location.getY() - 3) { // Going to fall
 				location.subtract(direction.clone().multiply(speed * SPEED_MODIFIER));
+				node = new Node3D(location.getX(), location.getY(), location.getZ());
 				blocked = true;
 			}
 
@@ -70,9 +81,11 @@ public class WalkTowardsEntityManager extends Manager {
 					double x = direction.getX(), z = direction.getZ();
 					Vector rotated = new Vector(x * cos - z * sin, 0, x * sin + z * cos).normalize();
 					Location newLocation = location.clone().add(rotated.clone().multiply(speed * SPEED_MODIFIER));
-					if (isValidLocation(newLocation)) {
+					Node3D newNode = new Node3D(newLocation.getX(), newLocation.getY(), newLocation.getZ());
+					if (isValidLocation(snapshot, newNode)) {
 						direction = rotated;
 						location = newLocation;
+						node = newNode;
 						break;
 					}
 				}
@@ -84,11 +97,16 @@ public class WalkTowardsEntityManager extends Manager {
 
 		boolean onground = false;
 		location.add(0, velocity * GRAVITY_MODIFIER, 0);
-		if (!isValidLocation(location)) { // Blocked by ceiling/floor
+		node = new Node3D(location.getX(), location.getY(), location.getZ());
+		if (!isValidLocation(snapshot, node)) { // Blocked by ceiling/floor
 			if (velocity <= 0) {
-				location.setY(MCGraph.getUpperHeight(location.getBlock(), null, 2));
+				location.setY(MCGraph.getUpperHeight(snapshot, node, null, 2));
+				node.y = location.getY();
 				onground = true;
-			} else location.setY(MCGraph.getLowerHeight(location.clone().add(0, 2, 0).getBlock(), null, 2) - HEIGHT);
+			} else {
+				location.setY(MCGraph.getLowerHeight(snapshot, new Node3D(node.x, node.y + 2, node.z), null, 2) - HEIGHT);
+				node.y = location.getY();
+			}
 			velocity = 0;
 		}
 
@@ -101,8 +119,10 @@ public class WalkTowardsEntityManager extends Manager {
 				Location newLocation = location.clone();
 				newLocation.subtract(0, velocity * GRAVITY_MODIFIER, 0);
 				newLocation.add(0, newVelocity * GRAVITY_MODIFIER, 0);
-				if (isValidLocation(newLocation)) {
+				Node3D newNode = new Node3D(newLocation.getX(), newLocation.getY(), newLocation.getZ());
+				if (isValidLocation(snapshot, newNode)) {
 					location = newLocation;
+					node = newNode;
 					velocity = newVelocity;
 				}
 			}
@@ -112,16 +132,18 @@ public class WalkTowardsEntityManager extends Manager {
 		entity.setLocation(location);
 	}
 
-	private boolean isValidLocation(Location location) {
-		if (MCGraph.getUpperHeight(location.getBlock(), null, 1) > location.getY())
+	private boolean isValidLocation(MCSnapshot snapshot, Node3D node) {
+		if (MCGraph.getUpperHeight(snapshot, node, null, 1) > node.y)
 			return false;
-		if (MCGraph.getLowerHeight(location.clone().add(0, HEIGHT, 0).getBlock(), null, 1) < location.getY() + HEIGHT)
+		if (MCGraph.getLowerHeight(snapshot, new Node3D(node.x, node.y + HEIGHT, node.z), null, 1) < node.y + HEIGHT)
 			return false;
 
-		if (Math.floor(location.getY() + HEIGHT) >= location.getBlockY() + 2) {
-			int end = (int) Math.floor(location.getY() + HEIGHT) - 1;
-			for (int y = location.getBlockY() + 1; y <= end; y++)
-				if (location.clone().add(0, y, 0).getBlock().getType().isSolid()) return false;
+		if (Math.floor(node.y + HEIGHT) >= (int) node.y + 2) {
+			int end = (int) Math.floor(node.y + HEIGHT) - 1;
+			for (int y = (int) node.y + 1; y <= end; y++) {
+				MaterialData data = snapshot.get(new Node3D(node.x, node.y + y, node.z));
+				if (data != null && data.getItemType().isSolid()) return false;
+			}
 		}
 
 		return true;

@@ -5,3 +5,6 @@ LightCitizens.iml
 LightCitizens.eml
 
 *.class
+*.jar
+
+target/*

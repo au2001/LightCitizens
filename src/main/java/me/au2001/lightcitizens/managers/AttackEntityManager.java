@@ -15,8 +15,8 @@ public class AttackEntityManager extends Manager {
 	private Damageable target;
 	private double lookRange = 10;
     private double attackRange = 5;
-    private int attackDelay = 20;
-    private int randomDelay = 20;
+    private int attackDelay = 5;
+    private int randomDelay = 15;
     private double attackDamage = 2;
     private double knockback = 0.5;
 

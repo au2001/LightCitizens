@@ -1,10 +1,11 @@
 package me.au2001.lightcitizens.pathfinder;
 
+import java.io.Closeable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-public abstract class Graph {
+public abstract class Graph implements Closeable  {
 
     public abstract boolean canMove(Node from, Node to);
 
