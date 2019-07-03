@@ -22,6 +22,7 @@ public class BroadcastEntityManager extends Manager {
 	public void onPlayerJoin(final PlayerJoinEvent event) {
 		new BukkitRunnable() {
 			public void run() {
+				if (!Bukkit.getOnlinePlayers().contains(event.getPlayer())) return;
 				// Delay the NPC loading so that the client has time to render the skin after the entity has spawned.
 				// Setting the delay too low would make the client receive the packets during the "login freeze", and
 				// wouldn't render the skin before the REMOVE_PLAYER packet is received, preventing the skin to load.

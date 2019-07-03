@@ -158,6 +158,7 @@ public class FakeEntity extends Random implements Listener {
 		}
 
 		if (!serverLocation.equals(clientLocation)) {
+			// TODO: Use relative movement when close enough
 			PacketPlayOutEntityTeleport move = new PacketPlayOutEntityTeleport();
 			move.set("a", entityId);
 			move.set("b", (int) (serverLocation.getX() * 32.0D));
@@ -232,8 +233,8 @@ public class FakeEntity extends Random implements Listener {
 		spawned.set("c", (int) (serverLocation.getX() * 32.0D));
 		spawned.set("d", (int) (serverLocation.getY() * 32.0D));
 		spawned.set("e", (int) (serverLocation.getZ() * 32.0D));
-		spawned.set("f", (byte) ((int) (serverLocation.getYaw() * 256.0F / 360.0F)));
-		spawned.set("g", (byte) ((int) (serverLocation.getPitch() * 256.0F / 360.0F)));
+		spawned.set("f", (byte) (serverLocation.getYaw() * 256.0F / 360.0F));
+		spawned.set("g", (byte) (serverLocation.getPitch() * 256.0F / 360.0F));
 		// spawned.set("h", equipment.hasItemInHand()? equipment.getItemInHand().getTypeId() : 0);
 		spawned.set("i", dataWatcher);
 		for (Player player : players) spawned.send(player);
@@ -397,6 +398,7 @@ public class FakeEntity extends Random implements Listener {
 
 		List<Player> observers = new ArrayList<Player>();
 		for (Player player : this.observers) {
+			if (!Bukkit.getOnlinePlayers().contains(player)) continue;
 			if (!serverLocation.getWorld().equals(player.getWorld())) continue;
 			if (viewDistance > 0 && serverLocation.distanceSquared(player.getLocation()) > viewDistance * viewDistance) continue;
 			observers.add(player);
@@ -632,7 +634,8 @@ public class FakeEntity extends Random implements Listener {
 	public void onPlayerMove(PlayerMoveEvent event) {
 		if (viewDistance <= 0) return;
 		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
-		if (!observers.contains(event.getPlayer()));
+		if (!observers.contains(event.getPlayer())) return;
+		if (!Bukkit.getOnlinePlayers().contains(event.getPlayer())) return;
 
 		if (!serverLocation.getWorld().equals(event.getPlayer().getWorld())) return;
 
@@ -646,7 +649,8 @@ public class FakeEntity extends Random implements Listener {
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent event) {
 		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
-		if (!observers.contains(event.getPlayer()));
+		if (!observers.contains(event.getPlayer())) return;
+		if (!Bukkit.getOnlinePlayers().contains(event.getPlayer())) return;
 
 		boolean from = serverLocation.getWorld().equals(event.getFrom().getWorld()) && (viewDistance <= 0 || serverLocation.distanceSquared(event.getFrom()) <= viewDistance * viewDistance);
 		boolean to = serverLocation.getWorld().equals(event.getTo().getWorld()) && (viewDistance <= 0 || serverLocation.distanceSquared(event.getTo()) <= viewDistance * viewDistance);
@@ -658,7 +662,8 @@ public class FakeEntity extends Random implements Listener {
 	@EventHandler
 	public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
 		if (serverLocation == null || serverLocation.getWorld() == null || serverLocation.getChunk() == null || !serverLocation.getChunk().isLoaded()) return;
-		if (!observers.contains(event.getPlayer()));
+		if (!observers.contains(event.getPlayer())) return;
+		if (!Bukkit.getOnlinePlayers().contains(event.getPlayer())) return;
 
 		boolean from = serverLocation.getWorld().equals(event.getFrom());
 		boolean to = serverLocation.getWorld().equals(event.getPlayer().getWorld()) && (viewDistance <= 0 || serverLocation.distanceSquared(event.getPlayer().getLocation()) <= viewDistance * viewDistance);
