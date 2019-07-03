@@ -2,8 +2,6 @@ package me.au2001.lightcitizens.managers;
 
 import me.au2001.lightcitizens.FakeEntity;
 import me.au2001.lightcitizens.packets.PacketPlayOutAnimation;
-import me.au2001.lightcitizens.packets.PacketPlayOutEntityHeadRotation;
-import me.au2001.lightcitizens.packets.PacketPlayOutRelEntityMoveLook;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Damageable;
@@ -47,33 +45,10 @@ public class AttackEntityManager extends Manager {
             return;
         }
 
-        Location orientation = entity.getLocation();
-        orientation.setDirection(target.getLocation().subtract(entity.getLocation()).toVector());
-
-        if (lookRange > 0 && target.getLocation().distanceSquared(entity.getLocation()) <= lookRange * lookRange) {
-            byte yaw = (byte) (orientation.getYaw() * 256.0F / 360.0F); // Between 0 and 256 instead of 0° to 360°
-            byte pitch = (byte) (orientation.getPitch() * 128.0F / 180.0F); // Between -64 and +64 instead of -90° to +90°
-
-            boolean updateyaw = entity.getLocation().getYaw() != yaw;
-            boolean updatepitch = entity.getLocation().getPitch() != pitch;
-
-            if (updateyaw) {
-                PacketPlayOutEntityHeadRotation look = new PacketPlayOutEntityHeadRotation();
-                look.set("a", entity.getEntityId());
-                look.set("b", yaw);
-                for (Player observer : entity.getVisibleObservers()) look.send(observer);
-            }
-
-            if (updateyaw || updatepitch) {
-                PacketPlayOutRelEntityMoveLook move = new PacketPlayOutRelEntityMoveLook();
-                move.set("a", entity.getEntityId());
-                move.set("b", (byte) 0);
-                move.set("c", (byte) 0);
-                move.set("d", (byte) 0);
-                move.set("e", yaw);
-                move.set("f", pitch);
-                for (Player observer : entity.getVisibleObservers()) move.send(observer);
-            }
+        Location location = entity.getLocation();
+        if (lookRange > 0 && target.getLocation().distanceSquared(location) <= lookRange * lookRange) {
+            location.setDirection(target.getLocation().subtract(location).toVector());
+            entity.setLocation(location);
         }
     }
 
@@ -102,7 +77,7 @@ public class AttackEntityManager extends Manager {
 
             int nodamage = -1;
             if (target instanceof LivingEntity) nodamage = ((LivingEntity) target).getNoDamageTicks();
-            target.damage(attackDamage);
+            target.damage(attackDamage); // TODO: Armor Protection enchant
 
             if (target == null || target.isDead()) {
                 totalKillCount++;

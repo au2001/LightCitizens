@@ -85,16 +85,6 @@ public class LightCitizens extends JavaPlugin {
 
 		new BukkitRunnable() {
 			public void run() {
-				ticks++;
-
-				for (FakeEntity entity : FakeEntity.entities) {
-					entity.update();
-					synchronized (entity) {
-						for (Entry<Class<? extends Manager>, Manager> manager : entity.getManagers().entrySet())
-							manager.getValue().syncTick();
-					}
-				}
-
 				for (Entry<Packet, Player> entry : packetsIn) {
 					Packet packet = entry.getKey();
 					Player sender = entry.getValue();
@@ -110,13 +100,21 @@ public class LightCitizens extends JavaPlugin {
 					}
 				}
 				packetsIn.clear();
+
+				ticks++;
+				for (FakeEntity entity : FakeEntity.entities) {
+					synchronized (entity) {
+						for (Entry<Class<? extends Manager>, Manager> manager : entity.getManagers().entrySet())
+							manager.getValue().syncTick();
+						entity.update();
+					}
+				}
 			}
 		}.runTaskTimer(this, 20, 0);
 
 		new BukkitRunnable() {
 			public void run() {
 				for (FakeEntity entity : FakeEntity.entities) {
-					entity.update();
 					synchronized (entity) {
 						for (Entry<Class<? extends Manager>, Manager> manager : entity.getManagers().entrySet())
 							manager.getValue().tick();
